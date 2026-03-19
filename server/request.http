@@ -1,0 +1,6 @@
+#POST http://192.168.0.9:3000/seed
+
+
+#GET http://192.168.0.9:3000/products
+
+POST http://192.168.0.9:3000/auth/register

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    /* Configuración Básica */
+    "target": "es2020",                // Versión de JS moderna pero segura
+    "module": "commonjs",              // El formato nativo de Node.js
+    "moduleResolution": "node",        // Cómo buscar módulos
+    "esModuleInterop": true,           // Permite usar 'import' en lugar de 'require'
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,              // Ignora errores en librerías externas
+
+    /* Rutas */
+    "outDir": "./dist",                // Donde se guardará el código compilado
+    "rootDir": "./",
+    
+    /* Desactivar la opción que te da el error */
+    "verbatimModuleSyntax": false      
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
+}
