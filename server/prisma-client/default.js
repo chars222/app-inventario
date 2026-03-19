@@ -1,1 +1,3 @@
-module.exports = { ...require('.') }
+module.exports = {
+  ...require('.prisma/client/default'),
+}

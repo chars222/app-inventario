@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { useAuth } from './context/AuthContext'; // Importamos nuestro hook
+import { useAuth } from './context/AuthContext';
 import { Lock, Mail, ArrowRight, LayoutDashboard } from 'lucide-react';
 
+// API Configuration from environment variables
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 export default function Login() {
-  const { login } = useAuth(); // Usamos la función del contexto
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -11,8 +14,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Recuerda cambiar la IP por la tuya
-      const res = await fetch('http://192.168.0.9:3000/auth/login', {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -21,7 +23,7 @@ export default function Login() {
       const data = await res.json();
       
       if (data.success) {
-        login(data.user); // ¡Guardamos la sesión globalmente!
+        login(data.user, data.token);
       } else {
         setError(data.error || 'Error al ingresar');
       }

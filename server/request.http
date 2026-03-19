@@ -1,6 +1,18 @@
-#POST http://192.168.0.9:3000/seed
+### HTTP REST Client for testing
+### Change BASE_URL to match your server configuration in .env
+### Default: http://localhost:3000
 
+@baseUrl = http://192.168.0.9:3000
+@token = 
 
-#GET http://192.168.0.9:3000/products
+### Seed Database (Reset and populate with test data)
+# POST http://192.168.0.9:3000/seed
+POST {{baseUrl}}/seed
 
-POST http://192.168.0.9:3000/auth/register
+### Get All Products
+# GET http://192.168.0.9:3000/products
+GET {{baseUrl}}/products
+Authorization: Bearer {{token}}
+
+### Register New Business
+POST {{baseUrl}}/auth/register

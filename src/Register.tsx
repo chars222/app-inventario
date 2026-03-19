@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Building2, User, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
-// 1. IMPORTA EL HOOK
-import { useAuth } from './context/AuthContext'; 
+import { useAuth } from './context/AuthContext';
 
-const API_URL = 'http://192.168.0.9:3000';
+// API Configuration from environment variables
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-export default function Register() { // Ya no necesitamos props aquí necesariamente
-  const { login } = useAuth(); // 2. SACAMOS LA FUNCIÓN LOGIN DEL CONTEXTO
+export default function Register() {
+  const { login } = useAuth();
   
   const [form, setForm] = useState({
     businessName: '',

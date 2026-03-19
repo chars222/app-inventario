@@ -55,8 +55,9 @@ model Category {
 model Product {
   id          Int      @id @default(autoincrement())
   name        String
-  price       Float    // Precio base
-  color       String   @default("Blue") // <--- NUEVO CAMPO
+  cost        Float    @default(0)  // Costo real del producto (lo que cuesta tener en stock)
+  price       Float    // Precio base (costo + margen de ganancia)
+  color       String   @default("Blue")
   // 1. FECHAS AUTOMÁTICAS (Prisma se encarga solo)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt  // <--- Se actualiza sola cada vez que tocas el registro

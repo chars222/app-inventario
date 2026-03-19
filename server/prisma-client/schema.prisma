@@ -58,6 +58,7 @@ model Product {
   id        Int      @id @default(autoincrement())
   name      String
   price     Float // Precio base
+  cost      Float
   color     String   @default("Blue") // <--- NUEVO CAMPO
   // 1. FECHAS AUTOMÁTICAS (Prisma se encarga solo)
   createdAt DateTime @default(now())

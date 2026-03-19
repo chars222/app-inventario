@@ -2,15 +2,19 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { PrismaClient } from './prisma-client'; // Tu ruta personalizada
+import dotenv from 'dotenv';
+import { PrismaClient } from './prisma-client';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
-const SECRET_KEY = "tu_secreto_super_seguro_cambialo_en_prod";
+const SECRET_KEY = process.env.SECRET_KEY || "default_secret_key_change_in_prod";
 
 app.use(cors({
-  origin: '*', // En producción, aquí pones 'https://tu-app.com'
+  origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -54,6 +58,7 @@ app.post('/auth/login', async (req, res) => {
 
 app.get('/categories', authenticateToken, async (req, res) => {
   const categories = await prisma.category.findMany();
+  console.log( "Categorías disponibles:", categories);
   res.json(categories);
 });
 // --- 1. Endpoint para llenar la DB con datos de prueba (Seed) ---
@@ -75,31 +80,33 @@ app.post('/seed', async (req, res) => {
     await prisma.category.createMany({
       data: [
         // Ropa Superior (Letras)
-        { name: 'Poleras', iconKey: 'Shirt', sizeType: 'LETTER' },
-        { name: 'Camisas', iconKey: 'ButtonShirt', sizeType: 'LETTER' },
-        { name: 'Chaquetas', iconKey: 'Jacket', sizeType: 'LETTER' },
-        { name: 'Vestidos', iconKey: 'Dress', sizeType: 'LETTER' },
+        { name: 'Poleras', iconKey: 'Poleras', sizeType: 'LETTER' },
+        { name: 'Camisas', iconKey: 'Camisas', sizeType: 'LETTER' },
+        { name: 'Polos', iconKey: 'Polos', sizeType: 'LETTER' },
+        { name: 'Chaquetas', iconKey: 'Chaquetas', sizeType: 'LETTER' },
+        { name: 'Vestidos', iconKey: 'Vestidos', sizeType: 'LETTER' },
         // Ropa Inferior (Números)
-        { name: 'Pantalones', iconKey: 'Pants', sizeType: 'NUMERIC' },
-        { name: 'Jeans', iconKey: 'Pants', sizeType: 'NUMERIC' },
-        { name: 'Shorts', iconKey: 'Pants', sizeType: 'NUMERIC' },
+        { name: 'Pantalones', iconKey: 'Pantalones', sizeType: 'NUMERIC' },
+        { name: 'Jeans', iconKey: 'Pantalones', sizeType: 'NUMERIC' },
+        { name: 'Shorts', iconKey: 'Pantalones', sizeType: 'NUMERIC' },
         // Calzado
-        { name: 'Zapatos', iconKey: 'Shoes', sizeType: 'SHOES' }
+        { name: 'Zapatos', iconKey: 'Pantalones', sizeType: 'SHOES' }
       ]
     });
 
     // 3. CREAR EL NEGOCIO (Entidad Padre)
     const business = await prisma.business.create({
       data: {
-        name: 'CENTRAL'
+        name: 'ADM ENTERPRISES' // Puedes cambiar el nombre de tu negocio aquí
       }
     });
 
     // 4. CREAR USUARIO DUEÑO (Vinculado al Negocio)
+    const hashedPassword = await bcrypt.hash('123456', 10);
     const user = await prisma.user.create({
       data: {
-        email: 'demo@central.com',
-        passwordHash: '123456',
+        email: 'cumpito20@gmail.com',
+        passwordHash: hashedPassword,
         fullName: 'Carlos Admin',
         role: 'OWNER',
         businessId: business.id // <--- Conexión clave
@@ -121,6 +128,7 @@ app.post('/seed', async (req, res) => {
     const polera = await prisma.product.create({
       data: {
         name: 'Polera Cotton Blue',
+        cost: 15.00,
         price: 25.00,
         color: 'Blue',
         categoryId: catPolera.id,
@@ -141,6 +149,7 @@ app.post('/seed', async (req, res) => {
     const jeans = await prisma.product.create({
       data: {
         name: 'Jeans Slim Fit',
+        cost: 95.00,
         price: 145.00,
         color: 'Navy',
         categoryId: catPantalon.id,
@@ -160,6 +169,7 @@ app.post('/seed', async (req, res) => {
     const camisa = await prisma.product.create({
       data: {
         name: 'Camisa Oxford Blanca',
+        cost: 120.00,
         price: 180.00,
         color: 'White',
         categoryId: catCamisa.id,
@@ -219,19 +229,32 @@ app.post('/seed', async (req, res) => {
 });
 
 app.post('/products', authenticateToken, async (req: any, res: any) => {
-  const { name, price, color, categoryId } = req.body;
+  const { name, cost, price, color, categoryId, variations } = req.body;
   const { businessId, id: userId } = req.user; // Datos del Token
 
   try {
     const newProduct = await prisma.product.create({
       data: {
         name,
+        cost: Number(cost),
         price: Number(price),
         color,
         categoryId: Number(categoryId),
         businessId: businessId,   // Vinculado a tu empresa
-        createdById: userId       // Vinculado a ti (Auditoría)
-        // Nota: No creamos variaciones aquí, el stock empieza en 0
+        createdById: userId,      // Vinculado a ti (Auditoría)
+        // Crear variaciones si se proporcionan
+        ...(variations && variations.length > 0 && {
+          variations: {
+            create: variations.map((v: any) => ({
+              size: v.size,
+              stock: v.stock || 0
+            }))
+          }
+        })
+      },
+      include: {
+        variations: true,
+        category: true
       }
     });
     res.json({ success: true, product: newProduct });
@@ -242,7 +265,7 @@ app.post('/products', authenticateToken, async (req: any, res: any) => {
 });
 // --- ENDPOINT PANTALLA PRINCIPAL (INVENTARIO ACTIVO) ---
 app.get('/products', authenticateToken, async (req: any, res: any) => {
-  const { businessId } = req.user.businessId; // <--- Ahora recibimos el ID del negocio
+  const businessId = req.user.businessId;
 
   if (!businessId) return res.status(400).json({ error: "Falta businessId" });
 
@@ -255,12 +278,11 @@ app.get('/products', authenticateToken, async (req: any, res: any) => {
     orderBy: { name: 'asc' }
   });
 
-  // ... (el resto del mapeo sigue igual)
   const inventoryList = products.map(p => ({
-     // ... tu lógica de mapeo
      id: p.id,
      name: p.name,
      price: p.price,
+     cost: p.cost,
      color: p.color,
      totalStock: p.variations.reduce((sum, v) => sum + v.stock, 0),
      category: p.category,
@@ -270,23 +292,113 @@ app.get('/products', authenticateToken, async (req: any, res: any) => {
   res.json(inventoryList);
 });
 
+// --- GET UN PRODUCTO ESPECÍFICO ---
+app.get('/products/:id', authenticateToken, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { businessId } = req.user;
+
+  try {
+    const product = await prisma.product.findFirst({
+      where: { id: Number(id), businessId },
+      include: {
+        category: true,
+        variations: true
+      }
+    });
+
+    if (!product) return res.status(404).json({ error: "Producto no encontrado" });
+
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: "Error en servidor" });
+  }
+});
+
+// --- EDITAR PRODUCTO ---
+app.put('/products/:id', authenticateToken, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { name, cost, price, color, categoryId } = req.body;
+  const { businessId, id: userId } = req.user;
+
+  try {
+    const product = await prisma.product.findFirst({
+      where: { id: Number(id), businessId }
+    });
+
+    if (!product) return res.status(404).json({ error: "Producto no encontrado" });
+
+    const updated = await prisma.product.update({
+      where: { id: Number(id) },
+      data: {
+        name: name || product.name,
+        cost: cost ? Number(cost) : product.cost,
+        price: price ? Number(price) : product.price,
+        color: color || product.color,
+        categoryId: categoryId ? Number(categoryId) : product.categoryId,
+        updatedById: userId
+      },
+      include: {
+        category: true,
+        variations: true
+      }
+    });
+
+    res.json({ success: true, product: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error actualizando producto" });
+  }
+});
+
+// --- ELIMINAR PRODUCTO ---
+app.delete('/products/:id', authenticateToken, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { businessId } = req.user;
+
+  try {
+    const product = await prisma.product.findFirst({
+      where: { id: Number(id), businessId }
+    });
+
+    if (!product) return res.status(404).json({ error: "Producto no encontrado" });
+
+    await prisma.variation.deleteMany({
+      where: { productId: Number(id) }
+    });
+
+    await prisma.product.delete({
+      where: { id: Number(id) }
+    });
+
+    res.json({ success: true, message: "Producto eliminado" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error eliminando producto" });
+  }
+});
+
+// --- AGREGAR STOCK (crear o actualizar variación) ---
 app.post('/stock/add', authenticateToken, async (req: any, res: any) => {
   const { productId, size, quantity, newPrice } = req.body;
-  const userId = req.user.id;
+  const { businessId, id: userId } = req.user;
+
   try {
-    // Buscamos si ya existe esa talla para ese producto
+    const product = await prisma.product.findFirst({
+      where: { id: Number(productId), businessId }
+    });
+
+    if (!product) return res.status(404).json({ error: "Producto no encontrado" });
+
     const variation = await prisma.variation.findFirst({
       where: { productId: Number(productId), size: String(size) }
     });
 
     if (variation) {
-      // Si existe, actualizamos sumando
       await prisma.variation.update({
         where: { id: variation.id },
         data: { stock: { increment: Number(quantity) } }
       });
     } else {
-      // Si no existe, la creamos
       await prisma.variation.create({
         data: {
           productId: Number(productId),
@@ -295,13 +407,16 @@ app.post('/stock/add', authenticateToken, async (req: any, res: any) => {
         }
       });
     }
-    // B. Actualizar Precio (NUEVO: Si el usuario decidió cambiarlo)
-      if (newPrice && Number(newPrice) > 0) {
-        await prisma.product.update({
-          where: { id: Number(productId) },
-          data: { price: Number(newPrice) } // Esto actualiza el precio para TODO el stock
-        });
-      }
+
+    if (newPrice && Number(newPrice) > 0) {
+      await prisma.product.update({
+        where: { id: Number(productId) },
+        data: { 
+          price: Number(newPrice),
+          updatedById: userId
+        }
+      });
+    }
 
     res.json({ success: true, message: "Stock actualizado" });
   } catch (error) {
@@ -310,50 +425,117 @@ app.post('/stock/add', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+// --- ACTUALIZAR VARIACIÓN ESPECÍFICA ---
+app.put('/variations/:id', authenticateToken, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { stock } = req.body;
+  const { businessId } = req.user;
 
-app.post('/sales', async (req, res) => {
-  const { items } = req.body; 
-  // items espera ser un array: [{ variationId, quantity, price }]
+  try {
+    const variation = await prisma.variation.findUnique({
+      where: { id: Number(id) },
+      include: { product: true }
+    });
+
+    if (!variation || variation.product.businessId !== businessId) {
+      return res.status(404).json({ error: "Variación no encontrada" });
+    }
+
+    const updated = await prisma.variation.update({
+      where: { id: Number(id) },
+      data: { stock: Number(stock) },
+      include: {
+        product: { include: { category: true } }
+      }
+    });
+
+    res.json({ success: true, variation: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error actualizando variación" });
+  }
+});
+
+// --- ELIMINAR VARIACIÓN ---
+app.delete('/variations/:id', authenticateToken, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { businessId } = req.user;
+
+  try {
+    const variation = await prisma.variation.findUnique({
+      where: { id: Number(id) },
+      include: { product: true }
+    });
+
+    if (!variation || variation.product.businessId !== businessId) {
+      return res.status(404).json({ error: "Variación no encontrada" });
+    }
+
+    const salesWithVariation = await prisma.saleItem.count({
+      where: { variationId: Number(id) }
+    });
+
+    if (salesWithVariation > 0) {
+      return res.status(400).json({ error: "No se puede eliminar: hay ventas asociadas" });
+    }
+
+    await prisma.variation.delete({
+      where: { id: Number(id) }
+    });
+
+    res.json({ success: true, message: "Variación eliminada" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error eliminando variación" });
+  }
+});
+
+
+// --- CREAR VENTA ---
+app.post('/sales', authenticateToken, async (req: any, res: any) => {
+  const { items } = req.body;
+  const { businessId, id: userId } = req.user;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
       let totalSale = 0;
 
       for (const item of items) {
-        // 1. Verificamos stock disponible
         const variation = await tx.variation.findUnique({
           where: { id: item.variationId }
         });
 
         if (!variation || variation.stock < item.quantity) {
-          throw new Error(`Stock insuficiente para el producto ID ${item.variationId}`);
+          throw new Error(`Stock insuficiente`);
         }
 
-        // 2. Descontamos Stock
         await tx.variation.update({
           where: { id: item.variationId },
           data: { stock: { decrement: item.quantity } }
         });
 
-        // 3. Calculamos total acumulado
         totalSale += (item.price * item.quantity);
       }
 
-      // 4. Creamos el registro de Venta y sus Detalles
-      const user = await tx.user.findFirst();
-      if (!user) throw new Error("No user found");
-
       const newSale = await tx.sale.create({
         data: {
-          userId: user.id,
-          businessId: user.businessId,
+          userId: userId,
+          businessId: businessId,
           total: totalSale,
+          date: new Date(),
           items: {
             create: items.map((item: any) => ({
               variationId: item.variationId,
               quantity: item.quantity,
-              price: item.price // AQUÍ guardamos el precio editado/negociado
+              price: item.price
             }))
+          }
+        },
+        include: {
+          items: {
+            include: {
+              variation: { include: { product: true } }
+            }
           }
         }
       });
@@ -361,10 +543,70 @@ app.post('/sales', async (req, res) => {
       return newSale;
     });
 
-    res.json(result);
+    res.json({ success: true, sale: result });
   } catch (error: any) {
     console.error(error);
     res.status(400).json({ error: error.message });
+  }
+});
+
+// --- LISTAR VENTAS DEL NEGOCIO ---
+app.get('/sales', authenticateToken, async (req: any, res: any) => {
+  const { businessId } = req.user;
+
+  try {
+    const sales = await prisma.sale.findMany({
+      where: { businessId },
+      include: {
+        items: {
+          include: {
+            variation: {
+              include: {
+                product: { include: { category: true } }
+              }
+            }
+          }
+        },
+        user: { select: { fullName: true, email: true } }
+      },
+      orderBy: { date: 'desc' }
+    });
+
+    res.json(sales);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error listando ventas" });
+  }
+});
+
+// --- OBTENER UNA VENTA ESPECÍFICA ---
+app.get('/sales/:id', authenticateToken, async (req: any, res: any) => {
+  const { id } = req.params;
+  const { businessId } = req.user;
+
+  try {
+    const sale = await prisma.sale.findFirst({
+      where: { id: Number(id), businessId },
+      include: {
+        items: {
+          include: {
+            variation: {
+              include: {
+                product: { include: { category: true } }
+              }
+            }
+          }
+        },
+        user: { select: { fullName: true, email: true } }
+      }
+    });
+
+    if (!sale) return res.status(404).json({ error: "Venta no encontrada" });
+
+    res.json(sale);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error obteniendo venta" });
   }
 });
 
@@ -407,66 +649,139 @@ app.post('/auth/register', async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 });
-// --- 2. AGREGAR EMPLEADO (Solo el dueño debería poder) ---
-app.post('/users/add', async (req, res) => {
-  const { businessId, fullName, email, password } = req.body;
+// --- AGREGAR EMPLEADO ---
+app.post('/users/add', authenticateToken, async (req: any, res: any) => {
+  const { fullName, email, password } = req.body;
+  const { businessId } = req.user;
 
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
     const newEmployee = await prisma.user.create({
       data: {
         fullName,
         email,
-        passwordHash: password,
-        role: 'SELLER', // Rol de vendedor
-        businessId: Number(businessId)
+        passwordHash: hashedPassword,
+        role: 'SELLER',
+        businessId: businessId
       }
     });
 
     res.json({ success: true, message: "Empleado creado", employee: newEmployee });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: "Email ya registrado" });
+    }
     res.status(500).json({ error: "Error creando empleado" });
   }
 });
 
-// --- 3. LISTAR MI EQUIPO ---
-app.get('/users/:businessId', async (req, res) => {
-  const { businessId } = req.params;
-  const users = await prisma.user.findMany({
-    where: { businessId: Number(businessId) },
-    select: { id: true, fullName: true, email: true, role: true } // No enviamos el password
-  });
-  res.json(users);
+// --- LISTAR EQUIPO DEL NEGOCIO ---
+app.get('/users', authenticateToken, async (req: any, res: any) => {
+  const { businessId } = req.user;
+
+  try {
+    const users = await prisma.user.findMany({
+      where: { businessId },
+      select: { id: true, fullName: true, email: true, role: true, createdAt: true }
+    });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: "Error listando usuarios" });
+  }
 });
 
-app.get('/dashboard', async (req, res) => {
+app.get('/dashboard', authenticateToken, async (req: any, res: any) => {
   try {
-    // 1. Obtener Usuario (Demo)
-    const user = await prisma.user.findFirst();
-    if (!user) return res.status(404).json({ error: 'No user found' });
+    const userId = req.user.id; // Usuario autenticado del token
 
-    // 2. Calcular Ingresos Totales (Sumar campo 'total' de todas las Sales)
-    const revenueAgg = await prisma.sale.aggregate({
-      where: { userId: user.id },
+    // Fechas para filtrar
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Inicio del día de hoy
+
+    const tomorrowStart = new Date(today);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    // 1. Calcular Ingresos de HOY
+    const revenueAggToday = await prisma.sale.aggregate({
+      where: { 
+        userId,
+        date: {
+          gte: today,
+          lt: tomorrowStart
+        }
+      },
       _sum: { total: true }
     });
-    const totalRevenue = revenueAgg._sum.total || 0;
+    const totalRevenueToday = revenueAggToday._sum.total || 0;
 
-    // 3. Obtener "Movimientos Recientes" (SaleItems)
-    // Consultamos los ITEMS vendidos para mostrar fila por fila qué se vendió
+    // 2. Buscar el ÚLTIMO DÍA ANTERIOR CON VENTAS
+    const lastSaleBeforeToday = await prisma.sale.findFirst({
+      where: {
+        userId,
+        date: {
+          lt: today // Todas las ventas antes de hoy
+        }
+      },
+      orderBy: { date: 'desc' }, // Ordenar por fecha descendente
+      select: { date: true }
+    });
+
+    let growth = "+0%";
+    if (lastSaleBeforeToday) {
+      // Obtener todas las ventas del último día con ventas
+      const lastSaleDate = new Date(lastSaleBeforeToday.date);
+      lastSaleDate.setHours(0, 0, 0, 0);
+      
+      const nextDay = new Date(lastSaleDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const revenueAggLastSaleDay = await prisma.sale.aggregate({
+        where: {
+          userId,
+          date: {
+            gte: lastSaleDate,
+            lt: nextDay
+          }
+        },
+        _sum: { total: true }
+      });
+      const totalRevenueLastSaleDay = revenueAggLastSaleDay._sum.total || 0;
+
+      // Calcular Growth (%)
+      if (totalRevenueLastSaleDay === 0) {
+        growth = totalRevenueToday > 0 ? "+100%" : "+0%";
+      } else {
+        const percentageChange = ((totalRevenueToday - totalRevenueLastSaleDay) / totalRevenueLastSaleDay) * 100;
+        const sign = percentageChange >= 0 ? "+" : "";
+        growth = `${sign}${Math.round(percentageChange)}%`;
+      }
+    } else {
+      // No hay ventas anteriores, si hay ventas hoy es +100%
+      growth = totalRevenueToday > 0 ? "+100%" : "+0%";
+    }
+
+    // 3. Obtener "Movimientos Recientes de HOY" (SaleItems)
     const recentItems = await prisma.saleItem.findMany({
       where: { 
-        sale: { userId: user.id } // Filtrar por ventas de este usuario
+        sale: { 
+          userId,
+          date: {
+            gte: today,
+            lt: tomorrowStart
+          }
+        }
       },
-      take: 20, // Solo los últimos 20 movimientos
+      take: 20,
       orderBy: { 
-        sale: { date: 'desc' } // Ordenar por fecha de la venta
+        sale: { date: 'desc' }
       },
       include: {
-        sale: true, // Para sacar la fecha
+        sale: true,
         variation: {
           include: {
             product: {
-              include: { category: true } // Para sacar el icono y color
+              include: { category: true }
             }
           }
         }
@@ -480,24 +795,14 @@ app.get('/dashboard', async (req, res) => {
 
       return {
         id: item.id,
-        // Título: Nombre del producto + Talla
         title: `${product.name} (${item.variation.size})`, 
-        
-        // Estado: Como ya no hay campo status, simulamos "Completado"
         status: ['Completado'], 
-        
         category: category.name,
         iconKey: category.iconKey,
-        
-        // Cantidad y Precio de ESTE item específico
         qty: item.quantity,
         price: item.price, 
-        
-        // Fecha para mostrar cuándo fue (opcional si tu UI lo usa)
         date: item.sale.date,
-
-        // Estilos visuales (Fallbacks)
-        color: 'Blue', // Puedes agregar campo color a Product si quieres
+        color: 'Blue',
         imageColor: 'bg-blue-50', 
         iconColor: 'text-blue-600'
       };
@@ -505,8 +810,8 @@ app.get('/dashboard', async (req, res) => {
 
     res.json({
       stats: {
-        totalRevenue: totalRevenue,
-        growth: "+15%" // Esto lo podrías calcular comparando mes actual vs anterior
+        totalRevenue: totalRevenueToday,
+        growth: growth
       },
       transactions: transactions
     });
