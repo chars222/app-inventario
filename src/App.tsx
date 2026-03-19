@@ -7,6 +7,7 @@ import AddProductModal from './components/AddProductModal';
 import Register from './Register';
 import Login from './Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Reports from './components/Reports';
 
 // --- TIPOS ---
 interface BadgeProps {
@@ -79,6 +80,7 @@ const MainApp = () => {
 
   const [categories, setCategories] = useState([]); // Para guardar las categorías
   const [isAddProductOpen, setIsAddProductOpen] = useState(false); // Para abrir el modal
+  const [showReports, setShowReports] = useState(false);
 
   // --- CARGA DE DATOS (PROTEGIDA CON JWT) ---
   const fetchData = async () => {
@@ -194,6 +196,7 @@ const MainApp = () => {
 
   // 3. Logueado -> Mostrar Dashboard
   if (loadingData && products.length === 0) return <div className="min-h-screen flex items-center justify-center text-slate-400 font-bold">Cargando CENTRAL...</div>;
+  if (showReports) return <Reports token={token!} onBack={() => setShowReports(false)} />;
 
   return (
     <div className="min-h-screen bg-[#F2F4F8] flex justify-center font-sans text-slate-900">
@@ -267,18 +270,28 @@ const MainApp = () => {
 
         {/* Bottom Navigation */}
         <div className="fixed bottom-6 left-0 right-0 flex justify-center z-40 pointer-events-none">
-            <div className="w-auto bg-white/90 backdrop-blur-xl border border-white/50 shadow-2xl rounded-full px-6 py-3 flex gap-8 items-center pointer-events-auto">
-              <button className="p-2 text-blue-600"><Home size={26} strokeWidth={2.5} /></button>
-              
-              {/* BOTÓN (+) CONECTADO */}
-              <button 
-                 onClick={() => setIsAddProductOpen(true)} // <--- AHORA ABRE EL MODAL
-                 className="w-12 h-12 bg-slate-900 hover:bg-slate-800 transition-colors rounded-full flex items-center justify-center text-white shadow-lg active:scale-95"
+            <div className="w-auto bg-white/90 backdrop-blur-xl border border-white/50 shadow-2xl rounded-full px-6 py-3 flex gap-6 items-center pointer-events-auto">
+              <button className="p-2 text-blue-600">
+                <Home size={26} strokeWidth={2.5} />
+              </button>
+
+              <button
+                onClick={() => setShowReports(true)}
+                className="p-2 text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <BarChart2 size={26} strokeWidth={2.5} />
+              </button>
+
+              <button
+                onClick={() => setIsAddProductOpen(true)}
+                className="w-12 h-12 bg-slate-900 hover:bg-slate-800 transition-colors rounded-full flex items-center justify-center text-white shadow-lg active:scale-95"
               >
                 <Plus size={24} />
               </button>
-              
-              <button onClick={logout} className="p-2 text-red-400 hover:text-red-600"><LogOut size={26} /></button>
+
+              <button onClick={logout} className="p-2 text-red-400 hover:text-red-600">
+                <LogOut size={26} />
+              </button>
             </div>
         </div>
         

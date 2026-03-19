@@ -1,84 +1,58 @@
 version: '3.8'
-
 services:
-  # ========================
-  # PostgreSQL Database
-  # ========================
-  db:
-    image: postgres:16-alpine
-    container_name: inventory_db
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: adminpassword
-      POSTGRES_DB: inventory_app
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d inventory_app"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - inventory_network
-    restart: unless-stopped
-
-  # ========================
-  # Backend Express Server
-  # ========================
   backend:
     build:
       context: ./server
       dockerfile: Dockerfile
     container_name: inventory_backend
+    restart: always
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://admin:adminpassword@db:5432/inventory_app?schema=public
-      SECRET_KEY: ${SECRET_KEY:-tu_secreto_super_seguro_cambialo_en_prod}
-      CORS_ORIGIN: http://frontend:3000
-    ports:
-      - "3001:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./server/node_modules:/app/node_modules
+      DATABASE_URL: postgresql://n8n:Admin2025Secure@postgres:5432/poleras_app?schema=public
+      SECRET_KEY: cambia_esto_por_jwt_secreto_seguro
+      CORS_ORIGIN: https://app.centralmoda.store
+    command: sh -c "npx prisma migrate deploy && node dist/index.js"
     networks:
-      - inventory_network
-    restart: unless-stopped
-    command: sh -c "npx prisma migrate deploy && npm run start"
+      - infra
+      - app_network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=infra
+      - traefik.http.routers.backend.rule=Host(`api.centralmoda.store`)
+      - traefik.http.routers.backend.entrypoints=websecure
+      - traefik.http.routers.backend.tls.certresolver=letsencrypt
+      - traefik.http.services.backend.loadbalancer.server.port=3000
+      - traefik.http.routers.backend-http.rule=Host(`api.centralmoda.store`)
+      - traefik.http.routers.backend-http.entrypoints=web
+      - traefik.http.routers.backend-http.middlewares=redirect-https
 
-  # ========================
-  # Frontend React/Vite
-  # ========================
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: http://backend:3000
+        VITE_API_URL: https://api.centralmoda.store
     container_name: inventory_frontend
-    environment:
-      VITE_API_URL: http://backend:3000
-      VITE_APP_NAME: Inventory Pro App
-    ports:
-      - "3000:5173"
+    restart: always
     depends_on:
       - backend
-    volumes:
-      - ./src:/app/src
-      - ./node_modules:/app/node_modules
     networks:
-      - inventory_network
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-    driver: local
+      - infra
+      - app_network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=infra
+      - traefik.http.routers.frontend.rule=Host(`app.centralmoda.store`)
+      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.routers.frontend.tls.certresolver=letsencrypt
+      - traefik.http.services.frontend.loadbalancer.server.port=80
+      - traefik.http.routers.frontend-http.rule=Host(`app.centralmoda.store`)
+      - traefik.http.routers.frontend-http.entrypoints=web
+      - traefik.http.routers.frontend-http.middlewares=redirect-https
 
 networks:
-  inventory_network:
+  infra:
+    external: true   # Red del stack n8n
+  app_network:
     driver: bridge

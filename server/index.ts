@@ -822,6 +822,218 @@ app.get('/dashboard', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+// =============================================
+// AGREGAR ESTOS ENDPOINTS A TU index.ts
+// =============================================
+
+// --- REPORTE DE INVENTARIO ---
+// GET /reports/inventory
+// Retorna inventario disgregado por producto, color y tallas
+app.get('/reports/inventory', authenticateToken, async (req: any, res: any) => {
+  const { businessId } = req.user;
+
+  try {
+    const products = await prisma.product.findMany({
+      where: { businessId },
+      include: {
+        category: true,
+        variations: true,
+      },
+      orderBy: { name: 'asc' }
+    });
+
+    const report = products.map(p => {
+      const totalStock = p.variations.reduce((sum, v) => sum + v.stock, 0);
+      const stockValue = totalStock * p.cost;         // valor al costo
+      const retailValue = totalStock * p.price;       // valor al precio venta
+
+      return {
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        price: p.price,
+        cost: p.cost,
+        category: p.category.name,
+        iconKey: p.category.iconKey,
+        totalStock,
+        stockValue,           // cuánto vale el stock al costo
+        retailValue,          // cuánto vale el stock al precio venta
+        potentialProfit: retailValue - stockValue,  // ganancia potencial si vendes todo
+        variations: p.variations
+          .sort((a, b) => a.size.localeCompare(b.size))
+          .map(v => ({
+            id: v.id,
+            size: v.size,
+            stock: v.stock,
+            stockValue: v.stock * p.cost,
+            retailValue: v.stock * p.price,
+          }))
+      };
+    });
+
+    // Totales globales
+    const totals = {
+      totalProducts: products.length,
+      totalUnits: report.reduce((sum, p) => sum + p.totalStock, 0),
+      totalStockValue: report.reduce((sum, p) => sum + p.stockValue, 0),
+      totalRetailValue: report.reduce((sum, p) => sum + p.retailValue, 0),
+      totalPotentialProfit: report.reduce((sum, p) => sum + p.potentialProfit, 0),
+    };
+
+    res.json({ totals, products: report });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error generando reporte de inventario' });
+  }
+});
+
+// --- REPORTE DE VENTAS CON UTILIDAD ---
+// GET /reports/sales?from=2025-01-01&to=2025-12-31
+// Retorna ventas con utilidad = precio_venta - costo, disgregado por talla y color
+app.get('/reports/sales', authenticateToken, async (req: any, res: any) => {
+  const { businessId } = req.user;
+  const { from, to } = req.query;
+
+  try {
+    const dateFilter: any = {};
+    if (from) dateFilter.gte = new Date(from as string);
+    if (to) {
+      const toDate = new Date(to as string);
+      toDate.setHours(23, 59, 59, 999);
+      dateFilter.lte = toDate;
+    }
+
+    const sales = await prisma.sale.findMany({
+      where: {
+        businessId,
+        ...(Object.keys(dateFilter).length > 0 && { date: dateFilter })
+      },
+      include: {
+        items: {
+          include: {
+            variation: {
+              include: {
+                product: {
+                  include: { category: true }
+                }
+              }
+            }
+          }
+        },
+        user: { select: { fullName: true } }
+      },
+      orderBy: { date: 'desc' }
+    });
+
+    // Construir detalle de cada venta con utilidad
+    const salesWithProfit = sales.map(sale => {
+      const items = sale.items.map(item => {
+        const product = item.variation.product;
+        const revenue = item.price * item.quantity;      // lo que se cobró
+        const cost = product.cost * item.quantity;       // lo que costó
+        const profit = revenue - cost;                   // utilidad real
+
+        return {
+          variationId: item.variation.id,
+          productId: product.id,
+          productName: product.name,
+          color: product.color,
+          iconKey: product.category.iconKey,
+          category: product.category.name,
+          size: item.variation.size,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          unitCost: product.cost,
+          revenue,
+          cost,
+          profit,
+          margin: revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : '0',
+        };
+      });
+
+      const totalRevenue = items.reduce((s, i) => s + i.revenue, 0);
+      const totalCost = items.reduce((s, i) => s + i.cost, 0);
+      const totalProfit = items.reduce((s, i) => s + i.profit, 0);
+
+      return {
+        saleId: sale.id,
+        date: sale.date,
+        seller: sale.user.fullName,
+        totalRevenue,
+        totalCost,
+        totalProfit,
+        margin: totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0',
+        items,
+      };
+    });
+
+    // Agrupado por producto → color → talla
+    const byProduct: Record<string, any> = {};
+    salesWithProfit.forEach(sale => {
+      sale.items.forEach(item => {
+        const key = `${item.productId}`;
+        if (!byProduct[key]) {
+          byProduct[key] = {
+            productId: item.productId,
+            productName: item.productName,
+            color: item.color,
+            iconKey: item.iconKey,
+            category: item.category,
+            totalQuantity: 0,
+            totalRevenue: 0,
+            totalCost: 0,
+            totalProfit: 0,
+            bySizeAndColor: {} as Record<string, any>
+          };
+        }
+        const p = byProduct[key];
+        p.totalQuantity += item.quantity;
+        p.totalRevenue += item.revenue;
+        p.totalCost += item.cost;
+        p.totalProfit += item.profit;
+
+        const sizeKey = `${item.color}-${item.size}`;
+        if (!p.bySizeAndColor[sizeKey]) {
+          p.bySizeAndColor[sizeKey] = {
+            color: item.color,
+            size: item.size,
+            quantity: 0,
+            revenue: 0,
+            cost: 0,
+            profit: 0,
+          };
+        }
+        p.bySizeAndColor[sizeKey].quantity += item.quantity;
+        p.bySizeAndColor[sizeKey].revenue += item.revenue;
+        p.bySizeAndColor[sizeKey].cost += item.cost;
+        p.bySizeAndColor[sizeKey].profit += item.profit;
+      });
+    });
+
+    // Totales globales del período
+    const totals = {
+      totalSales: sales.length,
+      totalUnits: salesWithProfit.reduce((s, sale) => s + sale.items.reduce((si, i) => si + i.quantity, 0), 0),
+      totalRevenue: salesWithProfit.reduce((s, sale) => s + sale.totalRevenue, 0),
+      totalCost: salesWithProfit.reduce((s, sale) => s + sale.totalCost, 0),
+      totalProfit: salesWithProfit.reduce((s, sale) => s + sale.totalProfit, 0),
+    };
+
+    res.json({
+      totals,
+      sales: salesWithProfit,
+      byProduct: Object.values(byProduct).map(p => ({
+        ...p,
+        margin: p.totalRevenue > 0 ? ((p.totalProfit / p.totalRevenue) * 100).toFixed(1) : '0',
+        bySizeAndColor: Object.values(p.bySizeAndColor)
+      })).sort((a: any, b: any) => b.totalProfit - a.totalProfit)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error generando reporte de ventas' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
