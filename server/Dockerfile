@@ -13,7 +13,7 @@ COPY . .
 RUN npx prisma generate
 RUN npx tsc --outDir dist --skipLibCheck 2>/dev/null || true
 # Copiar prisma-client dentro de dist para que el import relativo funcione
-RUN cp -r prisma-client dist/prisma-client
+RUN cp -r prisma-client/. dist/prisma-client
 
 # Stage 2: Production
 FROM node:18-alpine
