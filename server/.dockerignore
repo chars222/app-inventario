@@ -9,7 +9,6 @@ README.md
 .ds_store
 dist
 build
-prisma-client
 *.log
 .vscode
 .idea
