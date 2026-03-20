@@ -3,12 +3,14 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# OpenSSL necesario para Prisma
+RUN apk add --no-cache openssl
+
 COPY package*.json ./
 RUN npm ci
 
 COPY . .
 
-# Generar Prisma Client y compilar TypeScript
 RUN npx prisma generate
 RUN npx tsc --outDir dist --skipLibCheck 2>/dev/null || true
 
@@ -17,16 +19,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache dumb-init
+# OpenSSL necesario en runtime también
+RUN apk add --no-cache dumb-init openssl
 
-# Copiar todo como root antes de cambiar usuario
+# Copiar como root
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma-client ./prisma-client
 COPY package*.json ./
 
-# Dar permisos a todo antes de cambiar a usuario node
+# Permisos antes de cambiar usuario
 RUN chown -R node:node /app
 
 USER node
