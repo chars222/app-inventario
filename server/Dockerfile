@@ -3,7 +3,6 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# OpenSSL necesario para Prisma
 RUN apk add --no-cache openssl
 
 COPY package*.json ./
@@ -19,17 +18,14 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# OpenSSL necesario en runtime también
 RUN apk add --no-cache dumb-init openssl
 
-# Copiar como root
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma-client ./prisma-client
 COPY package*.json ./
 
-# Permisos antes de cambiar usuario
 RUN chown -R node:node /app
 
 USER node
