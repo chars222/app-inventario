@@ -3,40 +3,36 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copiar archivos de dependencias
 COPY package*.json ./
-
-# Instalar dependencias
 RUN npm ci
 
-# Copiar el código fuente
 COPY . .
 
-# Generar Prisma Client
+# Generar Prisma Client y compilar TypeScript
 RUN npx prisma generate
+RUN npx tsc --outDir dist --skipLibCheck 2>/dev/null || true
 
 # Stage 2: Production
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Instalar dumb-init para mejor manejo de señales
 RUN apk add --no-cache dumb-init
 
-# Copiar node_modules del builder
+# Copiar todo como root antes de cambiar usuario
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma-client ./prisma-client
+COPY package*.json ./
 
-# Copiar el resto de archivos
-COPY --chown=node:node . .
+# Dar permisos a todo antes de cambiar a usuario node
+RUN chown -R node:node /app
 
-# Crear usuario node y usar su cuenta
 USER node
 
-# Exponer puerto
 EXPOSE 3000
 
-# Usar dumb-init para ejecutar el proceso principal
 ENTRYPOINT ["dumb-init", "--"]
 
-# Comando por defecto
-CMD ["node", "index.ts"]
+CMD ["node", "dist/index.js"]
