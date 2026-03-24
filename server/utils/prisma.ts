@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaClient } from '../prisma-client';
 
 // Exportamos una única instancia de Prisma para toda la aplicación.
