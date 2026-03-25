@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Inventory Pro App', // Nombre completo al iniciar
-        short_name: 'Inventory',   // Nombre debajo del icono en el celular
+        name: 'CentralPOS', // Nombre completo al iniciar
+        short_name: 'CentralPOS',   // Nombre debajo del icono en el celular
         description: 'Control de inventario y ventas',
         theme_color: '#ffffff',    // Color de la barra de estado del celular
         background_color: '#F2F4F8', // Color de fondo mientras carga la app (splash screen)
