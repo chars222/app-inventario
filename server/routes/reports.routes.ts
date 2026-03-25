@@ -39,12 +39,12 @@ router.get('/inventory', authenticateToken, async (req: any, res: any) => {
 });
 
 router.get('/sales', authenticateToken, async (req: any, res: any) => {
-    const whereClause: any = { businessId: req.user.businessId };
+  // Extraemos la identidad del usuario del Token
+  const { businessId, id: userId, role } = req.user;
   const { from, to } = req.query;
 
-
   try {
-    // 1. Armamos el filtro de fechas si el frontend nos lo envía
+    // 1. Armamos el filtro de fechas
     const dateFilter: any = {};
     if (from) dateFilter.gte = new Date(from as string);
     if (to) {
@@ -53,12 +53,20 @@ router.get('/sales', authenticateToken, async (req: any, res: any) => {
       dateFilter.lte = toDate;
     }
 
-    // 2. Buscamos las ventas en ese rango de fechas
+    // 2. Armamos el filtro de base de datos general
+    const whereClause: any = {
+      businessId,
+      ...(Object.keys(dateFilter).length > 0 && { date: dateFilter })
+    };
+    
+    // 🔒 FILTRO DE SEGURIDAD VITAL: Si NO es dueño, solo le damos sus ventas
+    if (role !== 'OWNER') {
+      whereClause.userId = userId;
+    }
+
+    // 3. Buscamos las ventas
     const sales = await prisma.sale.findMany({
-      where: {
-        ...whereClause,
-        ...(Object.keys(dateFilter).length > 0 && { date: dateFilter })
-      },
+      where: whereClause,
       include: {
         items: {
           include: { variation: { include: { product: { include: { category: true } } } } }
@@ -68,7 +76,7 @@ router.get('/sales', authenticateToken, async (req: any, res: any) => {
       orderBy: { date: 'desc' }
     });
 
-    // 3. Mapeamos para calcular utilidades (Precio Venta - Costo)
+    // 4. Mapeamos para calcular utilidades (Precio Venta - Costo)
     const salesWithProfit = sales.map(sale => {
       const items = sale.items.map(item => {
         const product = item.variation.product;
@@ -97,7 +105,7 @@ router.get('/sales', authenticateToken, async (req: any, res: any) => {
       };
     });
 
-    // 4. Agrupamos TODO por Producto -> Talla/Color (Para que el frontend lo dibuje bonito)
+    // 5. Agrupamos por Producto -> Talla (Para el frontend)
     const byProduct: Record<string, any> = {};
     salesWithProfit.forEach(sale => {
       sale.items.forEach(item => {

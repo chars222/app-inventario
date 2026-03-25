@@ -15,7 +15,9 @@ const PRODUCT_COLORS: Record<string, string> = {
 };
 const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.0.9:3000';
 
-export const InventoryReport = ({ token }: { token: string }) => {
+export const InventoryReport = ({ token, role }: { token: string; role: string }) => {
+
+  const isOwner = role === 'OWNER';
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export const InventoryReport = ({ token }: { token: string }) => {
           ]);
        });
     });
-    exportToCSV("Reporte_Inventario_Detallado", rows);
+    exportToCSV("Reporte_Ventas", rows);
   };
 
   if (loading) return <div className="text-center text-slate-400 font-bold mt-10">Calculando inventario...</div>;
@@ -77,26 +79,18 @@ export const InventoryReport = ({ token }: { token: string }) => {
       <ExportButtons onCSV={handleExportCSV} onPDF={() => window.print()} />
       
       {/* KPIs Globales (Diseño similar a la captura oscura/verde) */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <div className="bg-[#1a202c] p-4 rounded-2xl flex flex-col justify-center print:border print:border-slate-300">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 print:text-black">Retail (Ingresos)</p>
-          <p className="text-2xl font-black text-white leading-none mt-1 print:text-black">Bs {fmt(totals.totalRetailValue)}</p>
-          <p className="text-[10px] font-bold text-slate-400 mt-1 print:text-black">{totals.totalUnits} uds totales</p>
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Unidades totales" value={fmt(totals.totalUnits)} sub={`${totals.totalProducts} productos`} accent="bg-slate-900 text-white" />
+       {isOwner && (
+         <StatCard label="Valor al costo" value={`Bs ${fmt(totals.totalStockValue)}`} accent="bg-slate-100 text-slate-800" />
+       )}
+       {isOwner && (
+        <StatCard label="Valor retail" value={`Bs ${fmt(totals.totalRetailValue)}`} accent="bg-blue-50 text-blue-900" />
+       )}
+       {isOwner && (
+        <StatCard label="Ganancia potencial" value={`Bs ${fmt(totals.totalPotentialProfit)}`} sub="si vendes todo" accent="bg-emerald-50 text-emerald-900" />
+       )}
         </div>
-        <div className="bg-[#fff1f2] p-4 rounded-2xl flex flex-col justify-center print:border print:border-slate-300">
-          <p className="text-[10px] font-black uppercase tracking-widest text-red-400/80 print:text-black">Costo Inventario</p>
-          <p className="text-2xl font-black text-[#881337] leading-none mt-1 print:text-black">Bs {fmt(totals.totalStockValue)}</p>
-        </div>
-        <div className="bg-[#10b981] p-4 rounded-2xl flex flex-col justify-center print:border print:border-slate-300">
-          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-100/80 print:text-black">Utilidad Potencial</p>
-          <p className="text-2xl font-black text-white leading-none mt-1 print:text-black">Bs {fmt(totals.totalPotentialProfit)}</p>
-        </div>
-        <div className="bg-[#eff6ff] p-4 rounded-2xl flex flex-col justify-center print:border print:border-slate-300">
-          <p className="text-[10px] font-black uppercase tracking-widest text-blue-400/80 print:text-black">Margen Promedio</p>
-          <p className="text-2xl font-black text-[#1e3a8a] leading-none mt-1 print:text-black">{marginPerc}%</p>
-          <p className="text-[10px] font-bold text-blue-400 mt-1 print:text-black">{totals.totalProducts} productos</p>
-        </div>
-      </div>
 
       {/* Renderizado Agrupado por Categorías */}
       <div className="space-y-6 print:space-y-4">
@@ -114,6 +108,7 @@ export const InventoryReport = ({ token }: { token: string }) => {
                   const IconComp = (Icons as Record<string, any>)[p.iconKey] || Package;
                   const colorClass = PRODUCT_COLORS[p.color] || PRODUCT_COLORS.Blue;
                   const isOpen = expanded === p.id;
+                  const isLow = p.totalStock < 5;
                   
                   const margin = p.retailValue > 0 ? ((p.potentialProfit / p.retailValue) * 100).toFixed(1) : '0';
 
@@ -121,60 +116,72 @@ export const InventoryReport = ({ token }: { token: string }) => {
                     <div key={p.id} className="bg-white rounded-[20px] shadow-sm border border-slate-100 overflow-hidden print:border-slate-300 print:break-inside-avoid print:shadow-none">
                       
                       {/* TARJETA PRINCIPAL EXACTA A TU CAPTURA */}
-                      <button className="w-full flex items-center gap-4 p-4 text-left print:pointer-events-none" onClick={() => setExpanded(isOpen ? null : p.id)}>
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${colorClass} print:border`}>
-                          <IconComp size={28} strokeWidth={1.5} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-800 text-[15px] truncate">{p.name}</p>
-                          <p className="text-sm font-bold text-emerald-600 mt-0.5 print:text-black">
-                            Bs {fmt(p.potentialProfit)} utilidad pot. <span className="opacity-50">·</span> {margin}%
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-center justify-center shrink-0 mr-1">
-                          <p className={`text-lg font-black leading-none ${p.totalStock === 0 ? 'text-red-500' : 'text-slate-800'}`}>
-                            {p.totalStock}
-                          </p>
-                          <p className="text-[10px] text-slate-400 font-black uppercase mt-1">UDS</p>
-                        </div>
-                        <div className="shrink-0 text-slate-300 print:hidden">
-                          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                        </div>
-                      </button>
+                            <button
+                      className="w-full flex items-center gap-3 p-4 text-left"
+                      onClick={() => setExpanded(isOpen ? null : p.id)}
+                    >
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
+                        <IconComp size={30} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-800 truncate">{p.name}</p>
+                        <p className="text-xs text-slate-400 font-medium">{p.category}</p>
+                      </div>
+                      <div className="text-right shrink-0 mr-1">
+                        <p className={`text-lg font-black ${isLow ? 'text-red-500' : 'text-slate-800'}`}>
+                          {p.totalStock}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase">uds</p>
+                      </div>
+                      {isOpen ? <ChevronUp size={16} className="text-slate-400 shrink-0" /> : <ChevronDown size={16} className="text-slate-400 shrink-0" />}
+                    </button>
 
                       {/* DETALLE DESPLEGABLE EXACTO A TU CAPTURA */}
-                      {(isOpen || window.matchMedia('print').matches) && (
-                        <div className="px-4 pb-4">
-                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 ml-1 print:text-black">Por Talla</p>
-                          
-                          {/* Lista Tallas con Stock (Muestra UDS y barra proporcional) */}
-                          <div className="space-y-3 bg-[#f8fafc] border border-slate-100/50 rounded-2xl p-3 print:border-slate-300 print:bg-transparent">
-                            {p.variations.map((v: any, i: number) => {
-                              // Matemáticas para la barra (Utilidad vs Costo)
-                              const vRetail = v.stock * p.price;
-                              const vProfit = vRetail - (v.stock * p.cost);
-                              const scMarginPerc = vRetail > 0 ? (vProfit / vRetail) * 100 : 0;
-                              
-                              return (
-                                <div key={i} className="flex items-center gap-3">
-                                  <span className="w-8 text-sm font-black text-slate-700 text-center">{v.size}</span>
-                                  <div className="flex-1">
-                                    <div className="flex justify-between items-end text-xs mb-1.5">
-                                      <span className="text-slate-500 font-medium">
-                                        Bs {fmt(vRetail)}
-                                      </span>
-                                      <span className="text-slate-500 font-black print:text-black">{v.stock} uds</span>
-                                    </div>
-                                    <div className="flex h-1.5 rounded-full overflow-hidden bg-[#fca5a5] print:hidden">
-                                      <div className="bg-[#34d399] h-full rounded-full transition-all" style={{ width: `${scMarginPerc}%` }} />
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
+                     {isOpen && (
+                <div className="px-4 pb-4 border-t border-slate-50">
+                  {/* Mini stats */}
+                  {isOwner && (
+                  <div className="grid grid-cols-3 gap-2 my-3">
+                    <div className="bg-slate-50 rounded-xl p-2 text-center">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">Costo u.</p>
+                      <p className="font-black text-slate-700 text-sm">Bs {fmt(p.cost)}</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-2 text-center">
+                      <p className="text-[10px] text-blue-400 font-bold uppercase">Precio u.</p>
+                      <p className="font-black text-blue-700 text-sm">Bs {fmt(p.price)}</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-xl p-2 text-center">
+                      <p className="text-[10px] text-emerald-400 font-bold uppercase">Gan. pot.</p>
+                      <p className="font-black text-emerald-700 text-sm">Bs {fmt(p.potentialProfit)}</p>
+                    </div>
+                  </div>
+                  )}
+
+                  {/* Por talla */}
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                    Desglose por talla
+                  </p>
+                  <div className="space-y-1.5">
+                    {p.variations.map((v: any) => (
+                      <div key={v.id} className="flex items-center gap-2">
+                        <span className="w-10 text-xs font-black text-slate-600 bg-slate-100 rounded-lg py-1 text-center">
+                          {v.size}
+                        </span>
+                        {/* Barra proporcional */}
+                        <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${v.stock === 0 ? 'bg-red-300' : 'bg-blue-400'}`}
+                            style={{ width: `${Math.min(100, (v.stock / (p.totalStock || 1)) * 100)}%` }}
+                          />
                         </div>
-                      )}
+                        <span className={`text-xs font-black w-6 text-right ${v.stock === 0 ? 'text-red-400' : 'text-slate-700'}`}>
+                          {v.stock}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
                     </div>
                   );
                 })}

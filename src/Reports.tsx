@@ -6,11 +6,13 @@ import { SalesReport } from './Reports/views/SalesReport';
 import { InventoryReport } from './Reports/views/InventoryReport';
 import { CriticalStockReport } from './Reports/views/CriticalStockReport';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.0.9:3000';
 export default function Reports({ token,user, onBack }: { token: string, user: any, onBack: () => void }) {
   // Ahora manejamos 5 tabs diferentes
-  const [tab, setTab] = useState<'top' | 'sales' | 'inventory' | 'sellers' | 'critical'>('top');
+  const isOwner = user?.role === 'OWNER';
 
+  console.log(isOwner);
+  const [tab, setTab] = useState<'top' | 'sales' | 'inventory' | 'sellers' | 'critical'>('top');
+  
   return (
     <div className="min-h-screen bg-[#F2F4F8] flex justify-center font-sans print:bg-white">
       <div className="w-full max-w-md pb-10 print:w-full print:max-w-none print:pb-0">
@@ -29,18 +31,21 @@ export default function Reports({ token,user, onBack }: { token: string, user: a
 
           {/* Selector de Tabs Horizontales (Scrollable) */}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        
-            <button onClick={() => setTab('top')} className={`px-4 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 whitespace-nowrap transition-all ${tab === 'top' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-400 border border-slate-100'}`}>
-              <Trophy size={16} /> Top Ventas
-            </button>
+             {isOwner && (
+              <button onClick={() => setTab('top')} className={`px-4 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 whitespace-nowrap transition-all ${tab === 'top' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                <Trophy size={16} /> Top Ventas
+              </button>
+             )}
             <button onClick={() => setTab('inventory')} className={`px-4 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 whitespace-nowrap transition-all ${tab === 'inventory' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-400 border border-slate-100'}`}>
               <Package size={16} /> Inventario
             </button>
-            <button onClick={() => setTab('sellers')} className={`px-4 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 whitespace-nowrap transition-all ${tab === 'sellers' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-400 border border-slate-100'}`}>
-              <Users size={16} /> Vendedores
-            </button>
+            {isOwner && (
+              <button onClick={() => setTab('sellers')} className={`px-4 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 whitespace-nowrap transition-all ${tab === 'sellers' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-400 border border-slate-100'}`}>
+                <Users size={16} /> Vendedores
+              </button>
+            )}
             <button onClick={() => setTab('sales')} className={`px-4 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 whitespace-nowrap transition-all ${tab === 'sales' ? 'bg-slate-900 text-white shadow-sm' : 'bg-white text-slate-400 border border-slate-100'}`}>
-              <TrendingUp size={16} /> Utilidades
+              <TrendingUp size={16} /> Ventas
             </button>
 
             <button onClick={() => setTab('critical')} className={`px-4 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 whitespace-nowrap transition-all ${tab === 'critical' ? 'bg-orange-500 text-white shadow-sm' : 'bg-white text-slate-400 border border-slate-100'}`}>
@@ -65,8 +70,8 @@ export default function Reports({ token,user, onBack }: { token: string, user: a
         <div className="px-5 pt-2">
           {tab === 'top' && <TopProductsReport token={token} />}
           {tab === 'sellers' && <SellersReport token={token} />}
-          {tab === 'sales' && <SalesReport token={token} />}
-          {tab === 'inventory' && <InventoryReport token={token} />}
+          {tab === 'sales' && <SalesReport token={token} role={user.role}  />}
+          {tab === 'inventory' && <InventoryReport token={token}  role={user.role} />}
           {tab === 'critical' && <CriticalStockReport token={token} />}
         </div>
       </div>

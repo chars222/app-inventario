@@ -7,6 +7,7 @@ import AddProductModal from './components/AddProductModal';
 import Register from './Register';
 import Login from './Login';
 import Reports from './Reports'; 
+import {ProfileView} from './components/Profile';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // --- TIPOS ---
@@ -25,138 +26,17 @@ interface Product {
   variations: Variation[];
   totalStock: number;
 }
+const PRODUCT_COLORS: Record<string, string> = {
+  'Blue': 'text-blue-600 bg-blue-50',
+  'Navy': 'text-indigo-800 bg-indigo-50',
+  'Red': 'text-red-600 bg-red-50',
+  'Black': 'text-slate-800 bg-slate-100',
+  'White': 'text-slate-100 bg-white border-2 border-slate-100',
+  'Green': 'text-emerald-600 bg-emerald-50',
+};
 
 // API Configuration
 const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.0.9:3000'; // Ajusta a tu IP
-
-// ==========================================
-// VISTA DE PERFIL Y EQUIPO (NUEVO MÓDULO)
-// ==========================================
-const ProfileView = ({ token, user, onBack, logout }: { token: string, user: any, onBack: () => void, logout: () => void }) => {
-  const [team, setTeam] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [newSeller, setNewSeller] = useState({ fullName: '', email: '', password: '' });
-  const isOwner = user?.role === 'OWNER';
-
-  const fetchTeam = async () => {
-    try {
-      const res = await fetch(`${API_URL}/users`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setTeam(await res.json());
-    } catch (err) {
-      console.error("Error fetching team", err);
-    }
-  };
-
-  useEffect(() => {
-    if (isOwner) fetchTeam();
-  }, [isOwner, token]);
-
-  const handleAddSeller = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/users/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(newSeller)
-      });
-      if (res.ok) {
-        setNewSeller({ fullName: '', email: '', password: '' });
-        fetchTeam(); // Recargar equipo
-      } else {
-        const err = await res.json();
-        alert(err.error || "Error al crear vendedor");
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#F4F6F9] pb-10 font-sans text-slate-900">
-      <div className="sticky top-0 z-20 bg-[#F4F6F9] pt-8 px-5 pb-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 text-slate-600 hover:bg-slate-50 transition-colors">
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h1 className="text-xl font-black text-slate-900 leading-none">Mi Perfil</h1>
-            <p className="text-xs text-slate-400 font-bold mt-0.5">{user.businessName}</p>
-          </div>
-        </div>
-        <button onClick={logout} className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 border border-red-100 hover:bg-red-100 transition-colors">
-          <LogOut size={14} strokeWidth={3} /> Salir
-        </button>
-      </div>
-
-      <div className="px-5 mt-4 space-y-6">
-        {/* TARJETA DEL USUARIO ACTUAL */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-white/60 flex items-center gap-4">
-          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center border-4 border-blue-50 shrink-0">
-            <User size={32} strokeWidth={2.5} />
-          </div>
-          <div>
-            <h2 className="text-xl font-black text-slate-800 leading-tight">{user.fullName}</h2>
-            <p className="text-sm font-bold text-slate-400">{user.email}</p>
-            <span className={`inline-block mt-2 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${isOwner ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-              Rol: {isOwner ? 'Dueño' : 'Vendedor'}
-            </span>
-          </div>
-        </div>
-
-        {/* GESTIÓN DE EQUIPO (SOLO DUEÑOS) */}
-        {isOwner && (
-          <div>
-            <div className="flex items-center gap-2 mb-4 px-1">
-              <Users size={18} className="text-slate-400" />
-              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Equipo de Ventas</h3>
-            </div>
-
-            {/* Formulario Agregar Vendedor */}
-            <form onSubmit={handleAddSeller} className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100 mb-4">
-              <h4 className="text-xs font-bold text-slate-500 mb-3 flex items-center gap-1.5"><UserPlus size={14}/> Nuevo Vendedor</h4>
-              <div className="space-y-3">
-                <input required type="text" placeholder="Nombre completo" value={newSeller.fullName} onChange={e => setNewSeller({...newSeller, fullName: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-                <input required type="email" placeholder="Correo electrónico" value={newSeller.email} onChange={e => setNewSeller({...newSeller, email: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-                <input required type="password" placeholder="Contraseña de acceso" value={newSeller.password} onChange={e => setNewSeller({...newSeller, password: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-                <button disabled={loading} type="submit" className="w-full bg-slate-900 text-white rounded-xl py-3 text-sm font-black shadow-md hover:bg-slate-800 disabled:opacity-50">
-                  {loading ? 'Creando...' : 'Crear Vendedor'}
-                </button>
-              </div>
-            </form>
-
-            {/* Lista de Equipo */}
-            <div className="space-y-3">
-              {team.map((member) => (
-                <div key={member.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-slate-800">{member.fullName}</p>
-                    <p className="text-xs text-slate-400 font-medium">{member.email}</p>
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-500 px-2 py-1 rounded-md">
-                    {member.role === 'OWNER' ? 'Dueño' : 'Vendedor'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!isOwner && (
-          <div className="bg-blue-50 border border-blue-100 rounded-[1.5rem] p-5 flex items-start gap-3">
-            <ShieldAlert size={24} className="text-blue-500 shrink-0" />
-            <div>
-              <p className="font-bold text-blue-900 text-sm">Modo Vendedor Activo</p>
-              <p className="text-xs font-medium text-blue-700 mt-1">Como vendedor puedes registrar ventas, reponer stock y ver tu rendimiento diario. Solo el dueño de la empresa puede crear nuevos productos y administrar al personal.</p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // ==========================================
 // LÓGICA PRINCIPAL DEL DASHBOARD
@@ -329,11 +209,12 @@ const MainApp = () => {
               <div className="space-y-3">
                 {catProducts.map((item) => {
                   const IconComponent = (Icons as Record<string, any>)[item.category.iconKey] || Package;
+                  const colorClass = PRODUCT_COLORS[item.color] || PRODUCT_COLORS.Blue;
                   
                   return (
                     <div key={item.id} className="bg-white p-4 rounded-[1.5rem] shadow-sm border border-slate-100 flex items-center gap-3">
-                      <div className="w-[52px] h-[52px] rounded-2xl border border-slate-200 bg-slate-50/50 flex items-center justify-center shrink-0">
-                          <IconComponent size={28} className="text-[#475569]" strokeWidth={1.5} /> 
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
+                          <IconComponent size={40} strokeWidth={1.5} /> 
                       </div>
 
                       <div className="flex-1 min-w-0">

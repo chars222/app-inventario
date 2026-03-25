@@ -58,7 +58,7 @@ router.post('/auth/register', async (req, res) => {
 
 // --- AGREGAR EMPLEADO ---
 router.post('/users/add', authenticateToken, async (req: any, res: any) => {
-  const { fullName, email, password } = req.body;
+  const { fullName, email, password,role } = req.body;
   const { businessId } = req.user;
 
   try {
@@ -68,7 +68,7 @@ router.post('/users/add', authenticateToken, async (req: any, res: any) => {
         fullName,
         email,
         passwordHash: hashedPassword,
-        role: 'SELLER',
+        role: role || 'SELLER',
         businessId: businessId
       }
     });
