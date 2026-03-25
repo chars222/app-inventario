@@ -35,10 +35,12 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-[#F2F4F8] flex items-center justify-center p-6">
       <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-xl">
-        <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-lg">
-                <LayoutDashboard size={32} />
-            </div>
+          <div className="text-center mb-8">
+            <img 
+                  src="../public/icon.svg" 
+                  alt="Logo CENTRAL" 
+                  className="w-20 h-20 mx-auto mb-4 drop-shadow-md hover:scale-105 transition-transform" 
+              />
             <h1 className="text-2xl font-bold text-slate-800">Bienvenido</h1>
             <p className="text-slate-500 text-sm">Ingresa a CENTRAL</p>
         </div>
@@ -65,7 +67,7 @@ export default function Login() {
 
             {error && <p className="text-red-500 text-sm text-center font-bold">{error}</p>}
 
-            <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 mt-4 hover:scale-[1.02] transition-transform">
+             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 mt-4 hover:scale-[1.02] transition-all">
                 Ingresar <ArrowRight size={20} />
             </button>
         </form>

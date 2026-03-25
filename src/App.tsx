@@ -9,6 +9,7 @@ import Login from './Login';
 import Reports from './Reports'; 
 import {ProfileView} from './components/Profile'; // Tu nuevo componente de perfil separado
 import { AuthProvider, useAuth } from './context/AuthContext';
+import ForgotPassword from './components/ForgotPassword'; 
 
 // --- TIPOS ---
 interface Variation {
@@ -73,7 +74,7 @@ const AuthPromptModal = ({ isOpen, onClose, onAction }: { isOpen: boolean, onClo
           Estás en el modo de demostración. Crea tu cuenta gratuita para administrar tu propio inventario, registrar ventas reales y ver tus ganancias exactas.
         </p>
         <div className="space-y-3">
-          <button onClick={() => onAction('register')} className="w-full bg-slate-900 text-white py-3.5 rounded-xl font-black shadow-md hover:bg-slate-800 transition-all flex items-center justify-center gap-2 active:scale-95">
+          <button onClick={() => onAction('register')} className="w-full  bg-blue-600 text-white py-3.5 rounded-xl font-black shadow-md hover:bg-slate-800 transition-all flex items-center justify-center gap-2 active:scale-95">
             Crear mi Empresa <ArrowRight size={18} />
           </button>
           <button onClick={() => onAction('login')} className="w-full bg-white border-2 border-slate-100 text-slate-600 py-3 rounded-xl font-bold hover:bg-slate-50 transition-all active:scale-95">
@@ -626,30 +627,47 @@ const AppRouter = () => {
   const { user, isLoading } = useAuth();
   
   // Modos de Autenticación cuando NO hay usuario logueado
-  const [authMode, setAuthMode] = useState<'demo' | 'login' | 'register'>('demo');
+  const [authMode, setAuthMode] = useState<'demo' | 'login' | 'register' | 'forgot-password'>('demo');
 
   if (isLoading) return <div className="min-h-screen bg-[#F4F6F9] flex items-center justify-center font-bold text-slate-400">Verificando sesión...</div>;
 
   // 1. SI NO HAY USUARIO LOGUEADO
   if (!user) {
-    if (authMode === 'login') {
+    if (authMode === 'forgot-password') {
       return (
         <div className="relative">
-          <button onClick={() => setAuthMode('demo')} className="absolute top-6 left-5 z-50 p-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-500">
+          <button onClick={() => setAuthMode('login')} className="absolute top-6 left-5 z-50 p-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-500 hover:bg-slate-50 transition-colors">
+            <ArrowLeft size={20}/>
+          </button>
+          <ForgotPassword onBackToLogin={() => setAuthMode('login')} />
+        </div>
+      );
+    }
+
+    if (authMode === 'login') {
+      return (
+        <div className="relative pb-32">
+          <button onClick={() => setAuthMode('demo')} className="absolute top-6 left-5 z-50 p-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-500 hover:bg-slate-50 transition-colors">
             <ArrowLeft size={20}/>
           </button>
           <Login />
-          <button onClick={() => setAuthMode('register')} className="fixed bottom-6 left-0 right-0 text-center text-sm font-bold text-slate-500 underline hover:text-slate-800 z-50">
-              ¿No tienes cuenta? Crea tu Empresa
-          </button>
+          
+          <div className="fixed bottom-6 left-0 right-0 flex flex-col items-center gap-3 z-50">
+            <button onClick={() => setAuthMode('forgot-password')} className="text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
+                ¿Olvidaste tu contraseña?
+            </button>
+            <button onClick={() => setAuthMode('register')} className="text-sm font-bold text-blue-600 underline hover:text-blue-800 transition-colors">
+                ¿No tienes cuenta? Crea tu Empresa
+            </button>
+          </div>
         </div>
       );
     }
 
     if (authMode === 'register') {
       return (
-        <div className="relative">
-          <button onClick={() => setAuthMode('demo')} className="absolute top-6 left-5 z-50 p-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-500">
+        <div className="relative pb-24">
+          <button onClick={() => setAuthMode('demo')} className="absolute top-6 left-5 z-50 p-2 bg-white rounded-full shadow-sm border border-slate-100 text-slate-500 hover:bg-slate-50 transition-colors">
             <ArrowLeft size={20}/>
           </button>
           <Register />
@@ -659,6 +677,7 @@ const AppRouter = () => {
         </div>
       );
     }
+
 
     // POR DEFECTO: Muestra la pantalla Demo (El Showcase)
     return <ShowcaseApp onNavigateAuth={setAuthMode} />;

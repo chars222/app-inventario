@@ -1,0 +1,18 @@
+<svg viewBox="0 0 512 512" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#2563eb"/> <!-- Blue 600 -->
+                                <stop offset="100%" stop-color="#4f46e5"/> <!-- Indigo 600 -->
+                            </linearGradient>
+                            <linearGradient id="grad1_accent" x1="0%" y1="100%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#10b981"/> <!-- Emerald 500 -->
+                                <stop offset="100%" stop-color="#34d399"/> <!-- Emerald 400 -->
+                            </linearGradient>
+                        </defs>
+                        <!-- Background -->
+                        <rect width="512" height="512" rx="112" fill="#ffffff"/>
+                        <!-- Outer C shape -->
+                        <path d="M 360 160 A 140 140 0 1 0 360 352" fill="none" stroke="url(#grad1)" stroke-width="64" stroke-linecap="round"/>
+                        <!-- Inner Dot / Node -->
+                        <circle cx="280" cy="256" r="48" fill="url(#grad1_accent)"/>
+                    </svg>

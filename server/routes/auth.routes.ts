@@ -94,4 +94,55 @@ router.get('/users', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+router.post('/auth/change-password', authenticateToken, async (req: any, res: any) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+
+    // 1. Verificamos que la contraseña actual sea correcta
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) return res.status(401).json({ error: "La contraseña actual es incorrecta" });
+
+    // 2. Encriptamos la nueva y actualizamos
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashedNewPassword }
+    });
+
+    res.json({ success: true, message: "Contraseña actualizada exitosamente" });
+  } catch (error) {
+    res.status(500).json({ error: "Error interno al cambiar contraseña" });
+  }
+});
+
+// --- OLVIDÉ MI CONTRASEÑA (RECUPERACIÓN) ---
+router.post('/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    
+    // Por seguridad, siempre respondemos "Éxito" para evitar enumeración de correos
+    if (!user) return res.json({ success: true, message: "Si el correo existe, se han enviado las instrucciones." });
+
+    // Aquí generarías un token temporal (ej. de 15 minutos)
+    const resetToken = jwt.sign({ id: user.id }, SECRET_KEY, { expiresIn: '15m' });
+
+    // 📩 ENTORNO REAL: Aquí usarías SendGrid, AWS SES o Resend para enviar el correo.
+    // await sendEmail(user.email, `app.centralmoda.store/reset?token=${resetToken}`);
+    
+    // Simulamos el envío
+    console.log(`\n📧 SIMULACIÓN DE CORREO ENVIADO A: ${email}`);
+    console.log(`🔗 Link de recuperación: https://app.centralmoda.store/reset?token=${resetToken}\n`);
+
+    res.json({ success: true, message: "Instrucciones enviadas." });
+  } catch (error) {
+    res.status(500).json({ error: "Error en el proceso de recuperación" });
+  }
+});
+
 export default router;

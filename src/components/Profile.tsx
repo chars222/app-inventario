@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LogOut, User, UserPlus, ShieldAlert, Users, ArrowLeft } from 'lucide-react';
+import { LogOut, User, UserPlus, ShieldAlert, Users, ArrowLeft, Lock } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.0.9:3000'; // Ajusta a tu IP si es necesario
 
@@ -14,6 +14,9 @@ export function ProfileView({ token, user, onBack, logout }: ProfileProps) {
   const [team, setTeam] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   
+  const [passwordData, setPasswordData] = useState({ current: '', new: '' });
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdMessage, setPwdMessage] = useState({ type: '', text: '' });
   // Estado inicial del nuevo usuario, por defecto SELLER
   const [newSeller, setNewSeller] = useState({ fullName: '', email: '', password: '', role: 'SELLER' });
   const isOwner = user?.role === 'OWNER';
@@ -55,6 +58,32 @@ export function ProfileView({ token, user, onBack, logout }: ProfileProps) {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdLoading(true);
+    setPwdMessage({ type: '', text: '' });
+
+    try {
+      const res = await fetch(`${API_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword: passwordData.current, newPassword: passwordData.new })
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setPwdMessage({ type: 'success', text: '¡Contraseña actualizada con éxito!' });
+        setPasswordData({ current: '', new: '' }); // Limpiamos los campos
+      } else {
+        setPwdMessage({ type: 'error', text: data.error || 'Error al actualizar contraseña' });
+      }
+    } catch (error) {
+      setPwdMessage({ type: 'error', text: 'Error de conexión con el servidor.' });
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F6F9] pb-10 font-sans text-slate-900">
       {/* HEADER FIJO */}
@@ -87,6 +116,50 @@ export function ProfileView({ token, user, onBack, logout }: ProfileProps) {
               Rol: {isOwner ? 'Administrador' : 'Vendedor'}
             </span>
           </div>
+        </div>
+
+        {/* 🔒 MÓDULO DE SEGURIDAD: CAMBIAR CONTRASEÑA */}
+        <div>
+          <div className="flex items-center gap-2 mb-4 px-1">
+            <Lock size={18} className="text-slate-400" />
+            <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Seguridad</h3>
+          </div>
+          <form onSubmit={handleChangePassword} className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100">
+            <div className="space-y-3">
+              <input 
+                required 
+                type="password" 
+                placeholder="Contraseña actual" 
+                value={passwordData.current} 
+                onChange={e => setPasswordData({...passwordData, current: e.target.value})} 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+              />
+              <input 
+                required 
+                minLength={6}
+                type="password" 
+                placeholder="Nueva contraseña" 
+                value={passwordData.new} 
+                onChange={e => setPasswordData({...passwordData, new: e.target.value})} 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" 
+              />
+              
+              {/* Mensaje de Éxito o Error */}
+              {pwdMessage.text && (
+                <p className={`text-xs font-bold px-3 py-2 rounded-lg text-center ${pwdMessage.type === 'success' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                  {pwdMessage.text}
+                </p>
+              )}
+
+              <button 
+                disabled={pwdLoading} 
+                type="submit" 
+                className="w-full bg-slate-100 text-slate-700 border border-slate-200 rounded-xl py-3 text-sm font-black shadow-sm hover:bg-slate-200 disabled:opacity-50 transition-all"
+              >
+                {pwdLoading ? 'Actualizando...' : 'Actualizar Contraseña'}
+              </button>
+            </div>
+          </form>
         </div>
 
         {/* GESTIÓN DE EQUIPO (SOLO DUEÑOS/ADMINS) */}
