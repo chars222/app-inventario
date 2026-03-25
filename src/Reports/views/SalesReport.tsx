@@ -16,7 +16,6 @@ const PRODUCT_COLORS: Record<string, string> = {
 const API_URL = import.meta.env.VITE_API_URL || 'http://192.168.0.9:3000';
 export const SalesReport = ({ token, role }: { token: string; role: string }) => {
   const isOwner = role === 'OWNER';
-  console.log(isOwner);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);

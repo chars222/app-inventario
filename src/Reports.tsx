@@ -10,7 +10,6 @@ export default function Reports({ token,user, onBack }: { token: string, user: a
   // Ahora manejamos 5 tabs diferentes
   const isOwner = user?.role === 'OWNER';
 
-  console.log(isOwner);
   const [tab, setTab] = useState<'top' | 'sales' | 'inventory' | 'sellers' | 'critical'>('top');
   
   return (
