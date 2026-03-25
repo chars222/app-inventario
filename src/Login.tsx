@@ -37,7 +37,7 @@ export default function Login() {
       <div className="bg-white w-full max-w-sm rounded-[2rem] p-8 shadow-xl">
           <div className="text-center mb-8">
             <img 
-                  src="../public/pwa-192x192.png" 
+                  src="https://app.centralmoda.store/pwa-192x192.png" 
                   alt="Logo CENTRAL" 
                   className="w-20 h-20 mx-auto mb-4 drop-shadow-md hover:scale-105 transition-transform" 
               />
