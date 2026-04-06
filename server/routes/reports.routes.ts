@@ -64,42 +64,56 @@ router.get('/sales', authenticateToken, async (req: any, res: any) => {
       whereClause.userId = userId;
     }
 
-    // 3. Buscamos las ventas
+    // 3. Buscamos las ventas (INCLUYENDO LAS REGLAS DE COMISIÓN DEL USUARIO)
     const sales = await prisma.sale.findMany({
       where: whereClause,
       include: {
         items: {
           include: { variation: { include: { product: { include: { category: true } } } } }
         },
-        user: { select: { fullName: true } }
+        user: { select: { fullName: true, commissionType: true, commissionValue: true } } // <-- AÑADIDO: REGLAS DE PAGO
       },
       orderBy: { date: 'desc' }
     });
 
-    // 4. Mapeamos para calcular utilidades (Precio Venta - Costo)
+    // 4. Mapeamos para calcular utilidades (Precio Venta - Costo Mercadería - Comisión)
     const salesWithProfit = sales.map(sale => {
+      const seller = sale.user;
+
       const items = sale.items.map(item => {
         const product = item.variation.product;
         const revenue = item.price * item.quantity;
         const cost = product.cost * item.quantity;
-        const profit = revenue - cost;
+        
+        // 🧮 CÁLCULO DE COMISIÓN A NIVEL DE ITEM
+        let commission = 0;
+        if (seller && seller.commissionType === 'FIXED') {
+            commission = (seller.commissionValue || 0) * item.quantity;
+        } else if (seller && seller.commissionType === 'PERCENTAGE') {
+            commission = revenue * ((seller.commissionValue || 0) / 100);
+        }
+
+        // Utilidad Neta Real: Lo que entró - Lo que costó la ropa - Lo que se le paga al vendedor
+        const profit = revenue - cost - commission;
 
         return {
           variationId: item.variation.id, productId: product.id, productName: product.name,
           color: product.color, iconKey: product.category.iconKey, category: product.category.name,
           size: item.variation.size, quantity: item.quantity, unitPrice: item.price,
-          unitCost: product.cost, revenue, cost, profit,
+          unitCost: product.cost, revenue, cost, commission, profit, // <-- Añadimos commission
           margin: revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : '0',
         };
       });
 
+      // Sumamos los totales de la venta
       const totalRevenue = items.reduce((s, i) => s + i.revenue, 0);
       const totalCost = items.reduce((s, i) => s + i.cost, 0);
+      const totalCommissions = items.reduce((s, i) => s + i.commission, 0); // <-- Total comisiones
       const totalProfit = items.reduce((s, i) => s + i.profit, 0);
 
       return {
         saleId: sale.id, date: sale.date, seller: sale.user.fullName,
-        totalRevenue, totalCost, totalProfit,
+        totalRevenue, totalCost, totalCommissions, totalProfit,
         margin: totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0',
         items,
       };
@@ -114,7 +128,7 @@ router.get('/sales', authenticateToken, async (req: any, res: any) => {
           byProduct[key] = {
             productId: item.productId, productName: item.productName, color: item.color,
             iconKey: item.iconKey, category: item.category, totalQuantity: 0,
-            totalRevenue: 0, totalCost: 0, totalProfit: 0,
+            totalRevenue: 0, totalCost: 0, totalCommissions: 0, totalProfit: 0, // <-- Añadido
             bySizeAndColor: {} as Record<string, any>
           };
         }
@@ -122,29 +136,34 @@ router.get('/sales', authenticateToken, async (req: any, res: any) => {
         p.totalQuantity += item.quantity;
         p.totalRevenue += item.revenue;
         p.totalCost += item.cost;
+        p.totalCommissions += item.commission; // <-- Añadido
         p.totalProfit += item.profit;
 
         const sizeKey = `${item.size}`;
         if (!p.bySizeAndColor[sizeKey]) {
           p.bySizeAndColor[sizeKey] = {
-            color: item.color, size: item.size, quantity: 0, revenue: 0, cost: 0, profit: 0,
+            color: item.color, size: item.size, quantity: 0, revenue: 0, cost: 0, commission: 0, profit: 0,
           };
         }
         p.bySizeAndColor[sizeKey].quantity += item.quantity;
         p.bySizeAndColor[sizeKey].revenue += item.revenue;
         p.bySizeAndColor[sizeKey].cost += item.cost;
+        p.bySizeAndColor[sizeKey].commission += item.commission; // <-- Añadido
         p.bySizeAndColor[sizeKey].profit += item.profit;
       });
     });
 
+    // 6. Generamos los totales globales
     const totals = {
       totalSales: sales.length,
       totalUnits: salesWithProfit.reduce((s, sale) => s + sale.items.reduce((si, i) => si + i.quantity, 0), 0),
       totalRevenue: salesWithProfit.reduce((s, sale) => s + sale.totalRevenue, 0),
       totalCost: salesWithProfit.reduce((s, sale) => s + sale.totalCost, 0),
+      totalCommissions: salesWithProfit.reduce((s, sale) => s + sale.totalCommissions, 0), // <-- ¡Aquí está para el recuadro naranja!
       totalProfit: salesWithProfit.reduce((s, sale) => s + sale.totalProfit, 0),
     };
 
+    // 7. Retornamos la misma estructura que tu componente React espera
     res.json({
       totals,
       sales: salesWithProfit,
@@ -155,10 +174,10 @@ router.get('/sales', authenticateToken, async (req: any, res: any) => {
       })).sort((a: any, b: any) => b.totalProfit - a.totalProfit)
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Error generando reporte de ventas' });
   }
 });
-
 router.get('/top-products', authenticateToken, async (req: any, res: any) => {
   const { businessId } = req.user;
   const { categoryId, from, to } = req.query;
@@ -217,19 +236,43 @@ router.get('/sellers', authenticateToken, async (req: any, res: any) => {
 
     const sales = await prisma.sale.findMany({
       where: { businessId, ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }) },
-      include: { user: { select: { id: true, fullName: true, role: true } }, items: true }
+      // SE AÑADIÓ: Traemos las reglas de comisión del usuario desde la base de datos
+      include: { user: { select: { id: true, fullName: true, role: true, commissionType: true, commissionValue: true } }, items: true }
     });
 
     const sellerStats: Record<number, any> = {};
 
     sales.forEach(sale => {
       const uid = sale.user.id;
+      const seller = sale.user;
+      
+      // Calculamos cuántos items se vendieron en esta nota específica
+      const itemsSoldInSale = sale.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+
       if (!sellerStats[uid]) {
-        sellerStats[uid] = { id: uid, name: sale.user.fullName, role: sale.user.role, totalSalesCount: 0, totalRevenue: 0, totalItemsSold: 0 };
+        sellerStats[uid] = { 
+            id: uid, name: seller.fullName, role: seller.role, 
+            totalSalesCount: 0, totalRevenue: 0, totalItemsSold: 0, 
+            totalCommissions: 0 // <-- INICIALIZAMOS EL NUEVO CAMPO EN 0
+        };
       }
+
+      // 🧮 MOTOR DE CÁLCULO DE COMISIONES (Igual que en el reporte general)
+      let saleCommission = 0;
+      if (seller.commissionType === 'FIXED') {
+         // Fijo: Multiplicamos el valor acordado por la cantidad de prendas vendidas en esta nota
+         saleCommission = (seller.commissionValue || 0) * itemsSoldInSale;
+      } else if (seller.commissionType === 'PERCENTAGE') {
+         // Porcentaje: Calculamos el % sobre el total del dinero que ingresó en esta nota
+         saleCommission = sale.total * ((seller.commissionValue || 0) / 100);
+      }
+
       sellerStats[uid].totalSalesCount += 1;
       sellerStats[uid].totalRevenue += sale.total;
-      sellerStats[uid].totalItemsSold += sale.items.reduce((sum, item) => sum + item.quantity, 0);
+      sellerStats[uid].totalItemsSold += itemsSoldInSale;
+      
+      // Sumamos la comisión generada al acumulado de este vendedor
+      sellerStats[uid].totalCommissions += saleCommission; 
     });
 
     res.json(Object.values(sellerStats).sort((a: any, b: any) => b.totalRevenue - a.totalRevenue));
@@ -237,7 +280,6 @@ router.get('/sellers', authenticateToken, async (req: any, res: any) => {
     res.status(500).json({ error: 'Error generando reporte de vendedores' });
   }
 });
-
 
 router.get('/critical-stock', authenticateToken, async (req: any, res: any) => {
   const { businessId } = req.user;

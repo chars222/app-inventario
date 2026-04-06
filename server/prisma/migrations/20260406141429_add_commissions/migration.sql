@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "commissionType" TEXT NOT NULL DEFAULT 'NONE',
+ADD COLUMN     "commissionValue" DOUBLE PRECISION NOT NULL DEFAULT 0;

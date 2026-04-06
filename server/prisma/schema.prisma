@@ -16,6 +16,7 @@ model Business {
   users     User[]
   products  Product[]
   sales     Sale[]
+  expenses           Expense[]
 }
 // --- MODELO DE USUARIO ---
 model User {
@@ -24,6 +25,7 @@ model User {
   passwordHash String
   fullName     String
   role         String   @default("OWNER") // "OWNER" (Dueño) o "SELLER" (Vendedor)
+  isActive        Boolean   @default(true)
   
   // Relación: El usuario pertenece a un Negocio
   businessId   Int
@@ -37,6 +39,10 @@ model User {
   updatedProducts Product[] @relation("UpdatedBy")
   // Relaciones: Un usuario tiene muchos productos y muchas ventas
   
+  commissionType  String    @default("NONE") // "NONE", "FIXED", "PERCENTAGE"
+  commissionValue Float     @default(0)      // Ej: 5 (Bs) o 10 (%)
+  
+  expenses           Expense[]
 }
 
 // --- MODELO DE CATEGORÍA ---
@@ -122,4 +128,17 @@ model SaleItem {
   // Relación con la Variación vendida (Talla específica)
   variationId Int
   variation   Variation @relation(fields: [variationId], references: [id])
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  concept     String
+  amount      Float
+  date        DateTime @default(now())
+  
+  businessId  Int
+  business    Business @relation(fields: [businessId], references: [id])
+  
+  createdById Int
+  createdBy   User     @relation(fields: [createdById], references: [id])
 }

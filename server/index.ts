@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.routes';
 import productRoutes from './routes/products.routes';
 import salesRoutes from './routes/sales.routes';
 import reportRoutes from './routes/reports.routes';
+import expenseRoutes from './routes/expenses.routes';
 
 // Configuraciones iniciales
 dotenv.config();
@@ -28,6 +29,8 @@ app.use(express.json());
 app.use('/', authRoutes);
 app.use('/', productRoutes);
 app.use('/', salesRoutes);
+app.use('/expenses', expenseRoutes);
+
 
 // Montamos la reportería bajo el prefijo "/reports"
 app.use('/reports', reportRoutes);

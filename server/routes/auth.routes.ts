@@ -58,7 +58,7 @@ router.post('/auth/register', async (req, res) => {
 
 // --- AGREGAR EMPLEADO ---
 router.post('/users/add', authenticateToken, async (req: any, res: any) => {
-  const { fullName, email, password,role } = req.body;
+  const { fullName, email, password,role, commissionType, commissionValue } = req.body;
   const { businessId } = req.user;
 
   try {
@@ -69,7 +69,9 @@ router.post('/users/add', authenticateToken, async (req: any, res: any) => {
         email,
         passwordHash: hashedPassword,
         role: role || 'SELLER',
-        businessId: businessId
+        businessId: businessId,
+        commissionType: commissionType || 'NONE',
+        commissionValue: Number(commissionValue) || 0,
       }
     });
 
@@ -80,13 +82,43 @@ router.post('/users/add', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+// --- DAR DE BAJA / REACTIVAR VENDEDOR ---
+router.put('/users/:id/status', authenticateToken, async (req: any, res: any) => {
+  try {
+    const userIdToUpdate = Number(req.params.id);
+    const { isActive } = req.body; // Recibimos el nuevo estado (true o false)
+
+    // Seguridad: Que no te desactives a ti mismo
+    if (userIdToUpdate === req.user.id) {
+      return res.status(400).json({ error: "No puedes cambiar tu propio estado." });
+    }
+
+    // Actualizamos el estado en la base de datos
+    await prisma.user.update({
+      where: { id: userIdToUpdate },
+      data: { isActive: isActive } // Lo pasamos a false o true
+    });
+
+    res.json({ success: true, message: `Usuario ${isActive ? 'reactivado' : 'dado de baja'} exitosamente.` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al actualizar el estado del usuario" });
+  }
+});
+
 // --- LISTAR EQUIPO ---
 router.get('/users', authenticateToken, async (req: any, res: any) => {
-  const { businessId } = req.user;
   try {
     const users = await prisma.user.findMany({
-      where: { businessId },
-      select: { id: true, fullName: true, email: true, role: true, createdAt: true }
+      where: { businessId: req.user.businessId },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+        isActive: true, // <---- ¡ASEGÚRATE DE QUE ESTO ESTÉ AQUÍ!
+      },
+      orderBy: { id: 'asc' }
     });
     res.json(users);
   } catch (error) {
