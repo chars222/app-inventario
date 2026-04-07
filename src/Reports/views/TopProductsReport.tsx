@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {Icons} from '../../components/Icons';
 import { exportToCSV } from '../utils/exportToCSV';
 import { ExportButtons, PeriodSelector, StatCard } from '../components/SharedUI';
-import { fmt, getPeriodDates } from '../utils/constants';
 
 const PRODUCT_COLORS: Record<string, string> = {
   'Blue': 'text-blue-600 bg-blue-50',
@@ -18,20 +17,94 @@ export const TopProductsReport = ({ token }: { token: string }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('month');
+  const [customDates, setCustomDates] = useState({ 
+      from: new Date().toISOString().split('T')[0], 
+      to: new Date().toISOString().split('T')[0] 
+  });
 
+    const getPeriodDates = () => {
+    const now = new Date();
+    if (period === 'today') {
+      const s = new Date(now); s.setHours(0, 0, 0, 0);
+      return { from: s.toISOString(), to: now.toISOString() };
+    }
+    if (period === 'week') {
+      const s = new Date(now); s.setDate(s.getDate() - 7);
+      return { from: s.toISOString(), to: now.toISOString() };
+    }
+    if (period === 'month') {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: s.toISOString(), to: now.toISOString() };
+    }
+    if (period === 'custom') {
+      return {
+          from: customDates.from ? new Date(`${customDates.from}T00:00:00`).toISOString() : '',
+          to: customDates.to ? new Date(`${customDates.to}T23:59:59`).toISOString() : ''
+      };
+    }
+    return {};
+  };
+   const PERIODS = [
+    { key: 'today', label: 'Hoy' },
+    { key: 'week',  label: '7 días' },
+    { key: 'month', label: 'Este mes' },
+    { key: 'custom', label: 'Personalizado' },
+  ];
   useEffect(() => {
     setLoading(true);
-    const { from, to } = getPeriodDates(period);
+    const { from, to } = getPeriodDates();
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
     fetch(`${API_URL}/reports/top-products?${params}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { setData(d); setLoading(false); });
-  }, [token, period]);
+  }, [token, period, customDates]);
 
   return (
     <div className="space-y-4 pb-10">
-      <PeriodSelector period={period} setPeriod={setPeriod} />
+         {/* ====================================
+          SELECTOR DE FECHAS AVANZADO 
+          ==================================== */}
+      <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-2">
+        <div className="flex gap-1 flex-1 bg-slate-100 p-1 rounded-xl">
+          {PERIODS.map(p => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className={`flex-1 py-2 rounded-lg text-xs font-black transition-all ${
+                period === p.key ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Mostrar calendarios solo si "Personalizado" está activo */}
+        {period === 'custom' && (
+            <div className="flex items-center gap-2 px-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                <div className="flex items-center gap-2 flex-1">
+                    <span className="text-[10px] font-black uppercase text-slate-400">Desde</span>
+                    <input 
+                        type="date" 
+                        value={customDates.from}
+                        onChange={(e) => setCustomDates({ ...customDates, from: e.target.value })}
+                        className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 w-full md:w-auto"
+                    />
+                </div>
+                <div className="flex items-center gap-2 flex-1">
+                    <span className="text-[10px] font-black uppercase text-slate-400">Hasta</span>
+                    <input 
+                        type="date" 
+                        value={customDates.to}
+                        onChange={(e) => setCustomDates({ ...customDates, to: e.target.value })}
+                        className="bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 px-3 py-2 rounded-lg focus:outline-none focus:border-blue-500 w-full md:w-auto"
+                    />
+                </div>
+            </div>
+        )}
+      </div>
+      
       {loading ? <div className="text-center text-slate-400 font-bold mt-10">Buscando best sellers...</div> : (
         <div className="space-y-3 mt-4">
           <ExportButtons onCSV={() => exportToCSV('Top', [["Rank", "Nombre", "Cantidad"], ...data.map((p:any, i:number)=>[i+1, p.name, p.totalQuantity])])} onPDF={() => window.print()} />
