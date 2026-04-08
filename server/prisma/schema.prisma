@@ -68,6 +68,12 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt  // <--- Se actualiza sola cada vez que tocas el registro
 
+  discountPercent Int         @default(0) // Ej: 15 (para 15%). 0 significa sin descuento.
+
+  // 📸 NUEVO: Sistema de Imágenes (PORTADA VS GALERÍA)
+  imageUrl        String?     // LA PORTADA: Imagen principal que se ve en la cuadrícula del catálogo.
+  gallery         String[]    // LA GALERÍA: Array de PostgreSQL para fotos extra ["espalda.jpg", "detalle.jpg"]
+
   // 2. ¿QUIÉN LO CREÓ? (Obligatorio)
   createdById Int
   createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
