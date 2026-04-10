@@ -9,6 +9,8 @@ import productRoutes from './routes/products.routes';
 import salesRoutes from './routes/sales.routes';
 import reportRoutes from './routes/reports.routes';
 import expenseRoutes from './routes/expenses.routes';
+import uploadRoutes from './routes/upload.routes'; 
+import path from 'path'; 
 
 // Configuraciones iniciales
 dotenv.config();
@@ -22,6 +24,10 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// <-- 2. EXPOSICIÓN PÚBLICA DE LA CARPETA DE IMÁGENES -->
+// Esto permite que el navegador pueda entrar a http://tu-api.com/uploads/foto.jpg
+app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
+
 // ==========================================
 // 🚀 MONTAJE DE RUTAS (La magia del orden)
 // ==========================================
@@ -29,6 +35,7 @@ app.use(express.json());
 app.use('/', authRoutes);
 app.use('/', productRoutes);
 app.use('/', salesRoutes);
+app.use('/', uploadRoutes); 
 app.use('/expenses', expenseRoutes);
 
 

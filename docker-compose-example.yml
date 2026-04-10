@@ -7,21 +7,25 @@ services:
     restart: always
     environment:
       NODE_ENV: production
-      PORT: 3000
-      DATABASE_URL: postgresql://n8n:Admin2025Secure@docker-compose-postgres-1:5432/poleras_app?schema=public
-      SECRET_KEY: cambia_esto_por_jwt_secreto_seguro
-      CORS_ORIGIN: https://app.centralmoda.store
+      PORT: {port}
+      DATABASE_URL: "CONECTION A POSTGRESQL"
+      SECRET_KEY: "<SECRET_KEY>"
+      CORS_ORIGIN: "CORS"
     command: sh -c "node dist/index.js"
+    volumes:
+      # Esta línea es la magia:
+      # "Carpeta en Hetzner" : "Carpeta dentro de Docker"
+      - ./datos/imagenes_subidas:/app/public/uploads
     networks:
       - infra
       - app_network
     labels:
       - traefik.enable=true
       - traefik.docker.network=infra
-      - traefik.http.routers.backend.rule=Host(`api.centralmoda.store`)
+      - traefik.http.routers.backend.rule=Host(`api_direction`)
       - traefik.http.routers.backend.entrypoints=websecure
       - traefik.http.routers.backend.tls.certresolver=letsencrypt
-      - traefik.http.services.backend.loadbalancer.server.port=3000
+      - traefik.http.services.backend.loadbalancer.server.port={port}
       - traefik.http.routers.backend-http.rule=Host(`api.centralmoda.store`)
       - traefik.http.routers.backend-http.entrypoints=web
       - traefik.http.routers.backend-http.middlewares=redirect-https
@@ -31,7 +35,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://api.centralmoda.store
+        VITE_API_URL: "api_direcciotion"
     container_name: inventory_frontend
     restart: always
     depends_on:
@@ -42,11 +46,11 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=infra
-      - traefik.http.routers.frontend.rule=Host(`app.centralmoda.store`)
+      - traefik.http.routers.frontend.rule=Host(`app_direccition`)
       - traefik.http.routers.frontend.entrypoints=websecure
       - traefik.http.routers.frontend.tls.certresolver=letsencrypt
-      - traefik.http.services.frontend.loadbalancer.server.port=80
-      - traefik.http.routers.frontend-http.rule=Host(`app.centralmoda.store`)
+      - traefik.http.services.frontend.loadbalancer.server.port={port}
+      - traefik.http.routers.frontend-http.rule=Host(`app_direccition`)
       - traefik.http.routers.frontend-http.entrypoints=web
       - traefik.http.routers.frontend-http.middlewares=redirect-https
 
