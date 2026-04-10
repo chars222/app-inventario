@@ -63,23 +63,6 @@ router.get('/products/:id', authenticateToken, async (req: any, res: any) => {
 
 // --- EDITAR PRODUCTO ---
 router.put('/products/:id', authenticateToken, async (req: any, res: any) => {
-  const { name, cost, price, color, categoryId } = req.body;
-  try {
-    const updated = await prisma.product.update({
-      where: { id: Number(req.params.id) },
-      data: {
-        name, cost: cost ? Number(cost) : undefined, price: price ? Number(price) : undefined,
-        color, categoryId: categoryId ? Number(categoryId) : undefined, updatedById: req.user.id
-      },
-      include: { category: true, variations: true }
-    });
-    res.json({ success: true, product: updated });
-  } catch (error) {
-    res.status(500).json({ error: "Error actualizando producto" });
-  }
-});
-
-router.put('/products/:id', authenticateToken, async (req: any, res: any) => {
   // 1. EXTRAER LOS NUEVOS CAMPOS (imageUrl, gallery, description)
   const { name, cost, price, color, categoryId, imageUrl, gallery, description } = req.body;
   try {
