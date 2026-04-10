@@ -45,6 +45,7 @@ router.post('/upload', authenticateToken, upload.single('image'), (req: any, res
     res.json({ success: true, url: imageUrl });
     
   } catch (error) {
+    console.log(error);
     res.status(500).json({ error: 'Error al procesar la imagen' });
   }
 });

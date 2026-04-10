@@ -79,6 +79,28 @@ router.put('/products/:id', authenticateToken, async (req: any, res: any) => {
   }
 });
 
+router.put('/products/:id', authenticateToken, async (req: any, res: any) => {
+  // 1. EXTRAER LOS NUEVOS CAMPOS (imageUrl, gallery, description)
+  const { name, cost, price, color, categoryId, imageUrl, gallery, description } = req.body;
+  try {
+    const updated = await prisma.product.update({
+      where: { id: Number(req.params.id) },
+      data: {
+        name, cost: cost ? Number(cost) : undefined, price: price ? Number(price) : undefined,
+        color, categoryId: categoryId ? Number(categoryId) : undefined, updatedById: req.user.id,
+        // 2. GUARDAR LOS CAMPOS EN LA BASE DE DATOS
+        imageUrl,
+        gallery,
+        description
+      },
+      include: { category: true, variations: true }
+    });
+    res.json({ success: true, product: updated });
+  } catch (error) {
+    res.status(500).json({ error: "Error actualizando producto" });
+  }
+});
+
 // --- ELIMINAR PRODUCTO ---
 router.delete('/products/:id', authenticateToken, async (req: any, res: any) => {
   try {
