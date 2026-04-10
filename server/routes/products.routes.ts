@@ -46,7 +46,9 @@ router.get('/products', authenticateToken, async (req: any, res: any) => {
   const inventoryList = products.map(p => ({
      id: p.id, name: p.name, price: p.price, cost: p.cost, color: p.color,
      totalStock: p.variations.reduce((sum, v) => sum + v.stock, 0),
-     category: p.category, variations: p.variations
+     category: p.category, variations: p.variations,
+     // Añadimos los campos visuales para que el AdminDashboard pueda leerlos
+     imageUrl: p.imageUrl, gallery: p.gallery, description: p.description
   }));
   res.json(inventoryList);
 });
