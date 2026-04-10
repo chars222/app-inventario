@@ -9,6 +9,7 @@ import productRoutes from './routes/products.routes';
 import salesRoutes from './routes/sales.routes';
 import reportRoutes from './routes/reports.routes';
 import expenseRoutes from './routes/expenses.routes';
+import catalogRoutes from './routes/catalog.routes';
 import uploadRoutes from './routes/upload.routes'; 
 import path from 'path'; 
 
@@ -17,11 +18,17 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',') 
+  : '*';
+
+// 2. Le pasamos el Array al middleware de CORS
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json());
 
 // <-- 2. EXPOSICIÓN PÚBLICA DE LA CARPETA DE IMÁGENES -->
@@ -37,6 +44,7 @@ app.use('/', productRoutes);
 app.use('/', salesRoutes);
 app.use('/', uploadRoutes); 
 app.use('/expenses', expenseRoutes);
+app.use('/catalog', catalogRoutes);
 
 
 // Montamos la reportería bajo el prefijo "/reports"

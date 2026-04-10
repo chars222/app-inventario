@@ -4,7 +4,7 @@ import { prisma } from '../utils/prisma';
 const router = Router();
 
 // Obtener TODO el catálogo público
-router.get('/catalog/products', async (req, res) => {
+router.get('/products', async (req, res) => {
   try {
     const products = await prisma.product.findMany({
       // include trae la categoría y las variaciones (tallas y stock)
@@ -18,7 +18,7 @@ router.get('/catalog/products', async (req, res) => {
 });
 
 // Obtener el detalle de UN solo producto por su ID
-router.get('/catalog/products/:id', async (req, res) => {
+router.get('/products/:id', async (req, res) => {
   try {
     const product = await prisma.product.findUnique({
       where: { id: Number(req.params.id) },
