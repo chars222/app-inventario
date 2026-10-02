@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
@@ -18,19 +18,14 @@ async function main() {
   console.log('🌱 Ejecutando seed de categorías...');
 
   for (const category of categories) {
+
     const existing = await prisma.category.findFirst({
       where: {
         name: category.name,
       },
     });
 
-    if (!existing) {
-      const created = await prisma.category.create({
-        data: category,
-      });
-
-      console.log(`✅ ${created.name} creada con ID ${created.id}`);
-    } else {
+    if (existing) {
       await prisma.category.update({
         where: {
           id: existing.id,
@@ -41,16 +36,25 @@ async function main() {
         },
       });
 
-      console.log(`↻ ${existing.name} ya existe`);
+      console.log(`🔄 ${category.name} actualizada`);
+    } else {
+      const created = await prisma.category.create({
+        data: category,
+      });
+
+      console.log(
+        `✅ ${created.name} creada con ID ${created.id}`
+      );
     }
   }
 
-  console.log('✅ Seed finalizado.');
+  console.log('✅ Seed finalizado correctamente.');
 }
 
 main()
   .catch((error) => {
-    console.error('❌ Error ejecutando seed:', error);
+    console.error('❌ Error ejecutando seed:');
+    console.error(error);
     process.exit(1);
   })
   .finally(async () => {
