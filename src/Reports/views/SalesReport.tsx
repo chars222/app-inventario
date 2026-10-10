@@ -467,11 +467,25 @@ export const SalesReport = ({ token, role }: { token: string; role: string }) =>
                       </p>
                   </div>
 
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2 mt-6">Historial de Egresos</h3>
+                  {/* NUEVO ENCABEZADO CON BOTÓN "AGREGAR" */}
+                  <div className="flex justify-between items-end pl-2 pr-1 mt-6">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          Historial de Egresos
+                      </h3>
+                      <button 
+                          onClick={() => setShowExpenseModal(true)}
+                          className="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-1 transition-colors active:scale-95"
+                      >
+                          <Plus size={14} strokeWidth={3} /> Añadir
+                      </button>
+                  </div>
                   
                   <div className="space-y-3">
                       {expenses.length === 0 ? (
-                          <p className="text-center text-sm font-bold text-slate-400 py-6">No hay gastos registrados este período.</p>
+                          <div className="text-center py-10 bg-white rounded-2xl border border-slate-100 border-dashed mt-2">
+                              <Wallet size={40} className="mx-auto text-slate-200 mb-2" />
+                              <p className="text-sm font-bold text-slate-400">No hay gastos registrados este período.</p>
+                          </div>
                       ) : (
                           expenses.map((exp: any) => (
                               <div key={exp.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between group">
@@ -487,12 +501,11 @@ export const SalesReport = ({ token, role }: { token: string; role: string }) =>
                                       </div>
                                   </div>
                                   <div className="flex items-center gap-3">
-                                      <span className="font-black text-red-600">- Bs {exp.amount}</span>
+                                      <span className="font-black text-red-600">Bs {exp.amount}</span>
                                       
-                                      {/* BOTÓN DE ELIMINAR -> Ahora abre el nuevo Modal */}
                                       <button 
                                           onClick={() => setDeleteConfirm({ isOpen: true, id: exp.id, concept: exp.concept })}
-                                          className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                          className="p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors active:scale-95"
                                           title="Eliminar registro"
                                       >
                                           <Trash2 size={16} />
